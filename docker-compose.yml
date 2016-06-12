@@ -27,14 +27,7 @@ services:
     build: ./compose/nginx
     depends_on:
       - django
-
       - certbot
-
-    ports:
-      - "0.0.0.0:80:80"
-
-    environment:
-      - MY_DOMAIN_NAME=kchart.io
     ports:
       - "0.0.0.0:80:80"
       - "0.0.0.0:443:443"
