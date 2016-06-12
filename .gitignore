@@ -61,3 +61,5 @@ kchart/media/
 
 # Hitch directory
 tests/.hitch
+
+compose/nginx/*.pem
