@@ -47,3 +47,7 @@ celery==3.1.23
 
 
 # Your custom requirements go here
+
+# Django REST Framework
+djangorestframework==3.3.3
+django-filter==0.13.0
