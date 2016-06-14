@@ -8,20 +8,20 @@ from django.utils.translation import ugettext_lazy as _
 class Artist(models.Model):
 
     name = models.CharField(_('Artist name'), blank=True, max_length=255)
-    debut_date = models.DateField(_('Artist debut date'))
+    debut_date = models.DateField(_('Artist debut date'), null=True)
 
 
 class Album(models.Model):
 
     name = models.CharField(_('Album name'), blank=True, max_length=255)
-    artist = models.ForeignKey(Artist, on_delete=models.PROTECT, related_name='albums')
+    artists = models.ManyToManyField(Artist, related_name='albums')
     release_date = models.DateField(_('Album release date'))
 
 
 class Song(models.Model):
 
     name = models.CharField(_('Song name'), blank=True, max_length=255)
-    artist = models.ForeignKey(Artist, on_delete=models.PROTECT, related_name='songs')
+    artists = models.ManyToManyField(Artist, related_name='songs')
     album = models.ForeignKey(Album, on_delete=models.PROTECT, related_name='songs')
     release_date = models.DateField(_('Song release date'))
 

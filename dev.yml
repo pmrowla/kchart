@@ -22,6 +22,7 @@ services:
       - postgres
     environment:
       - POSTGRES_USER=kchart
+      - MELON_APP_KEY=5113bea9-7bc1-3a2b-9967-2c3d0cca37b9
     volumes:
       - .:/app
     ports:

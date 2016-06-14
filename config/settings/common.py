@@ -237,3 +237,6 @@ BROKER_URL = env('CELERY_BROKER_URL', default='django://')
 ADMIN_URL = r'^admin/'
 
 # Your common stuff: Below this line define 3rd party library settings
+
+# Melon/SK developer appKey
+MELON_APP_KEY = env('MELON_APP_KEY')

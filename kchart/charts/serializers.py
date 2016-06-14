@@ -23,17 +23,29 @@ class ArtistSerializer(serializers.ModelSerializer):
 
 class AlbumSerializer(serializers.ModelSerializer):
 
+    artists = ArtistSerializer(many=True)
+
     class Meta:
         model = Album
-        fields = ('id', 'name', 'artist', 'release_date')
+        fields = ('id', 'name', 'artists', 'release_date')
+
+
+class AlbumTitleSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Album
+        fields = ('id', 'name')
 
 
 class SongSerializer(serializers.ModelSerializer):
 
+    artists = ArtistSerializer(many=True)
+    album = AlbumTitleSerializer()
+
     class Meta:
         model = Song
-        fields = ('id', 'name', 'artist', 'album', 'release_date')
-        depth = 1   # Don't re-serialize album.artist
+        fields = ('id', 'name', 'artists', 'album', 'release_date')
+        depth = 1
 
 
 class MusicServiceSerializer(serializers.ModelSerializer):
@@ -47,18 +59,24 @@ class ChartSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Chart
-        fields = ('service', 'name', 'url', 'weight')
-
-
-class HourlySongChartSerializer(serializers.ModelSerializer):
-
-    class Meta:
-        model = HourlySongChart
-        fields = ('chart', 'hour', 'entries')
+        fields = ('name', 'url', 'weight')
 
 
 class HourlySongChartEntrySerializer(serializers.ModelSerializer):
 
+    song = SongSerializer()
+
     class Meta:
         model = HourlySongChartEntry
-        fields = ('hourly_chart', 'position', 'song')
+        fields = ('position', 'song')
+        depth = 1
+
+
+class HourlySongChartSerializer(serializers.ModelSerializer):
+
+    chart = ChartSerializer()
+    entries = HourlySongChartEntrySerializer(many=True)
+
+    class Meta:
+        model = HourlySongChart
+        fields = ('chart', 'hour', 'entries')
