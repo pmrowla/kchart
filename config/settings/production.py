@@ -217,7 +217,7 @@ ADMIN_URL = env('DJANGO_ADMIN_URL')
 # Your production stuff: Below this line define 3rd party library settings
 CELERYBEAT_SCHEDULE = {
     'melon-hourly': {
-        'task': 'kchart.taskapp.update_melon_hourly_chart',
+        'task': 'kchart.charts.tasks.update_melon_hourly_chart',
         'schedule': crontab(minute=1),
     },
 }
