@@ -16,6 +16,8 @@ from __future__ import absolute_import, unicode_literals
 from boto.s3.connection import OrdinaryCallingFormat
 from django.utils import six
 
+from celery.schedules import crontab
+
 import logging
 
 
@@ -213,3 +215,9 @@ RAVEN_CONFIG = {
 ADMIN_URL = env('DJANGO_ADMIN_URL')
 
 # Your production stuff: Below this line define 3rd party library settings
+CELERYBEAT_SCHEDULE = {
+    'melon-hourly': {
+        'task': 'kchart.taskapp.update_melon_hourly_chart',
+        'schedule': crontab(minute=1),
+    },
+}

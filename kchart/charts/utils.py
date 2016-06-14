@@ -6,6 +6,7 @@ from datetime import datetime, date
 from lxml.html import fromstring
 from pytz import timezone, utc
 import requests
+import sys
 
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist, MultipleObjectsReturned
@@ -197,6 +198,10 @@ class MelonChartService(BaseChartService):
         return artist_info
 
     def fetch_hourly(self, hour=None, dry_run=False, force_update=False, cmd=None, verbosity=1):
+        if cmd:
+            stdout = cmd.stdout
+        else:
+            stdout = sys.stdout
         if hour:
             raise ValueError(
                 'Melon does not allow historical hourly chart data to be retrieved. '
@@ -227,14 +232,14 @@ class MelonChartService(BaseChartService):
         if melon_data['count'] != 100:
             raise ValueError('Melon returned unexpected number of chart entries: {}'.format(melon_data['count']))
         rank_hour = melon_hour(melon_data['rankDay'], melon_data['rankHour'])
-        if cmd and verbosity:
-            cmd.stdout.write('Fetched melon realtime chart for {}'.format(rank_hour))
+        if verbosity:
+            stdout.write('Fetched melon realtime chart for {}'.format(rank_hour))
         if dry_run:
             return
         (hourly_song_chart, created) = HourlySongChart.objects.get_or_create(chart=self.hourly_chart, hour=rank_hour)
         if not created and hourly_song_chart.entries.count():
-            if cmd:
-                cmd.stdout.write('Already fetched this chart')
+            if verbosity:
+                stdout.write('Already fetched this chart')
             return
         for song_data in melon_data['songs']['song']:
             release_date = datetime.strptime(song_data['issueDate'], '%Y%m%d').date()
@@ -259,8 +264,8 @@ class MelonChartService(BaseChartService):
             if not created and chart_entry.position != song_data['currentRank']:
                 chart_entry.position = song_data['currentRank']
                 chart_entry.save()
-        if cmd and verbosity:
-            cmd.stdout.write(cmd.style.SUCCESS('Wrote melon realtime chart for {} to database'.format(rank_hour)))
+        if verbosity:
+            stdout.write('Wrote melon realtime chart for {} to database'.format(rank_hour))
 
 
 # Add chart services to process here
