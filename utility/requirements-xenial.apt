@@ -22,3 +22,7 @@ libwebp-dev
 
 ##django-extensions
 graphviz-dev
+
+##lxml dependencies
+libxml2-dev
+libxslt-dev
