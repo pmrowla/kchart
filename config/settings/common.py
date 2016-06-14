@@ -46,6 +46,7 @@ THIRD_PARTY_APPS = (
 LOCAL_APPS = (
     'kchart.users',  # custom users app
     # Your stuff: custom apps go here
+    'kchart.charts',
 )
 
 # See: https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
