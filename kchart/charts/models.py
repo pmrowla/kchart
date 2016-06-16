@@ -17,12 +17,21 @@ class Artist(models.Model):
     name = models.CharField(_('Artist name'), blank=True, max_length=255)
     debut_date = models.DateField(_('Artist debut date'), null=True)
 
+    def __str__(self):
+        return self.name
+
 
 class Album(models.Model):
 
     name = models.CharField(_('Album name'), blank=True, max_length=255)
     artists = models.ManyToManyField(Artist, related_name='albums')
     release_date = models.DateField(_('Album release date'))
+
+    def __str__(self):
+        artist_names = []
+        for artist in self.artists.all():
+            artist_names.append(str(artist))
+        return '{} - {}'.format(', '.join(artist_names), self.name)
 
 
 class Song(models.Model):
@@ -31,6 +40,12 @@ class Song(models.Model):
     artists = models.ManyToManyField(Artist, related_name='songs')
     album = models.ForeignKey(Album, on_delete=models.PROTECT, related_name='songs')
     release_date = models.DateField(_('Song release date'))
+
+    def __str__(self):
+        artist_names = []
+        for artist in self.artists.all():
+            artist_names.append(str(artist))
+        return '{} - {}'.format(', '.join(artist_names), self.name)
 
 
 class MusicService(models.Model):
@@ -42,6 +57,9 @@ class MusicService(models.Model):
     _album_url = models.URLField(_('Base album URL'), blank=True)
     _song_url = models.URLField(_('Base song URL'), blank=True)
     slug = models.SlugField(_('Slug name'), blank=True)
+
+    def __str__(self):
+        return self.name
 
     def get_artist_url(self, artist_id):
         '''Return the URL for the specified artist page
