@@ -59,7 +59,7 @@ class ChartSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Chart
-        fields = ('name', 'url', 'weight')
+        fields = ('name', 'url')
 
 
 class HourlySongChartEntrySerializer(serializers.ModelSerializer):
@@ -70,6 +70,12 @@ class HourlySongChartEntrySerializer(serializers.ModelSerializer):
         model = HourlySongChartEntry
         fields = ('position', 'song')
         depth = 1
+
+
+class AggregateChartEntrySerializer(serializers.Serializer):
+
+    song = SongSerializer()
+    total_score = serializers.FloatField()
 
 
 class HourlySongChartSerializer(serializers.ModelSerializer):

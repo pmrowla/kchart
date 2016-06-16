@@ -3,7 +3,7 @@ from __future__ import unicode_literals, absolute_import
 
 from django.core.management.base import BaseCommand, CommandError
 
-from kchart.charts.utils import CHART_SERVICES
+from kchart.charts.chartservice import CHART_SERVICES
 
 
 class Command(BaseCommand):

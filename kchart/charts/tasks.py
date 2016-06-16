@@ -3,7 +3,7 @@ from __future__ import unicode_literals, absolute_import
 
 from celery import shared_task
 
-from .utils import MelonChartService
+from .chartservice import MelonChartService
 
 
 @shared_task

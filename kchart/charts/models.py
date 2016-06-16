@@ -2,7 +2,14 @@
 from __future__ import unicode_literals, absolute_import
 
 from django.db import models
+from django.db.models import (
+    ExpressionWrapper,
+    F,
+    Sum,
+)
 from django.utils.translation import ugettext_lazy as _
+
+from .utils import utcnow, strip_to_hour
 
 
 class Artist(models.Model):
@@ -34,6 +41,7 @@ class MusicService(models.Model):
     _artist_url = models.URLField(_('Base artist URL'), blank=True)
     _album_url = models.URLField(_('Base album URL'), blank=True)
     _song_url = models.URLField(_('Base song URL'), blank=True)
+    slug = models.SlugField(_('Slug name'), blank=True)
 
     def get_artist_url(self, artist_id):
         '''Return the URL for the specified artist page
@@ -95,7 +103,7 @@ class Chart(models.Model):
     service = models.ForeignKey(MusicService, on_delete=models.PROTECT)
     name = models.CharField(_('Chart name'), blank=True, max_length=255)
     url = models.URLField(_('Chart URL'), blank=True)
-    weight = models.URLField(_('Chart aggregation weight'), default=1.0)
+    weight = models.FloatField(_('Chart aggregation weight'), default=1.0)
 
     def __str__(self):
         return self.name
@@ -120,3 +128,18 @@ class HourlySongChartEntry(models.Model):
     class Meta:
         unique_together = (('hourly_chart', 'song'), ('hourly_chart', 'position'))
         ordering = ['hourly_chart', 'position']
+
+    @classmethod
+    def aggregate(hour=utcnow()):
+        '''Return an aggregate hourly chart'''
+        hour = strip_to_hour(hour)
+        return HourlySongChartEntry.objects.filter(
+            hourly_chart__hour=hour
+        ).values('song').annotate(
+            total_score=Sum(
+                ExpressionWrapper(
+                    101 - F('position'),
+                    output_field=models.FloatField()
+                ) * F('hourly_chart__chart__weight')
+            )
+        ).order_by('-total_score')
