@@ -223,8 +223,6 @@ class AggregateHourlySongChart(models.Model):
         )
         if not created and not regenerate:
             return chart
-        elif created:
-            chart.entries.clear()
         entries = HourlySongChartEntry.objects.filter(
             hourly_chart__hour=hour
         ).values('song').annotate(
