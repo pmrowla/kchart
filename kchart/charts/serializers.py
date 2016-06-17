@@ -65,11 +65,11 @@ class ChartSerializer(serializers.ModelSerializer):
 class HourlySongChartEntrySerializer(serializers.ModelSerializer):
 
     song = SongSerializer()
+    prev_position = serializers.IntegerField()
 
     class Meta:
         model = HourlySongChartEntry
-        fields = ('position', 'song')
-        depth = 1
+        fields = ('song', 'position', 'prev_position')
 
 
 class AggregateChartEntrySerializer(serializers.Serializer):

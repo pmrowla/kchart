@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals, absolute_import
 
+from datetime import timedelta
+
 from django.db import models
 from django.db.models import (
     ExpressionWrapper,
@@ -146,6 +148,18 @@ class HourlySongChartEntry(models.Model):
     class Meta:
         unique_together = (('hourly_chart', 'song'), ('hourly_chart', 'position'))
         ordering = ['hourly_chart', 'position']
+
+    @property
+    def prev_position(self):
+        try:
+            prev_entry = HourlySongChartEntry.objects.get(
+                hourly_chart__chart=self.hourly_chart.chart,
+                hourly_chart__hour=self.hourly_chart.hour - timedelta(hours=1),
+                song=self.song
+            )
+            return prev_entry.position
+        except HourlySongChartEntry.DoesNotExist:
+            return None
 
     @classmethod
     def aggregate(hour=utcnow()):
