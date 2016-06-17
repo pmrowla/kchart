@@ -481,7 +481,7 @@ class MelonChartService(BaseChartService):
             logger.info('Got matched song: {}'.format(matched_song))
             return cls.get_or_create_song_from_melon_data(matched_song)
         else:
-            logger.error('Could not find match for song {}'.format(song))
+            logger.info('Could not find match for song {}'.format(song))
             return None
 
 
@@ -572,7 +572,7 @@ class GenieChartService(BaseChartService):
             if song:
                 break
         if not song:
-            logger.info('no song for {}'.format(song_name))
+            logger.warning('no song for {}'.format(song_name))
             return None
         MusicServiceSong.objects.get_or_create(
             song=song,
