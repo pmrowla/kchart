@@ -12,5 +12,5 @@ hourly_song_chart_list = HourlySongChartViewSet.as_view({
 
 urlpatterns = [
     url(r'^charts/realtime/$', hourly_song_chart_list, name='realtime'),
-    url(r'^charts/(?P<slug>\w+)/realtime/$', hourly_song_chart_list, name='realtime-service'),
+    url(r'^charts/realtime/(?P<slug>\w+)/$', hourly_song_chart_list, name='realtime-service'),
 ]

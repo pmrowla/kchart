@@ -18,12 +18,15 @@ class HourlySongChartViewSet(ListModelMixin, GenericViewSet):
     serializer_class = HourlySongChartSerializer
 
     def get_queryset(self):
+        q = HourlySongChart.objects
         if 'slug' in self.kwargs:
-            service = MusicService.objects.filter(slug=self.kwargs['slug']).first()
-            if not service:
+            try:
+                service = MusicService.objects.get(slug=self.kwargs['slug'])
+                q = q.filter(chart__service=service)
+            except MusicService.DoesNotExist:
                 raise NotFound('No such music service')
         else:
-            service = None
+            service = MusicService.objects.get(slug='melon')
         hour_str = self.request.query_params.get('hour', None)
         if hour_str:
             try:
@@ -31,8 +34,6 @@ class HourlySongChartViewSet(ListModelMixin, GenericViewSet):
             except ValueError:
                 raise NotFound('Invalid hour parameter')
         else:
-            hour = strip_to_hour(utcnow())
+            hour = HourlySongChart.objects.filter(chart__service=service).first().hour
         q = HourlySongChart.objects.filter(hour=hour)
-        if service:
-            q = q.filter(chart__service=service)
         return q.all()
