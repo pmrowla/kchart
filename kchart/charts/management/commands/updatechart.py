@@ -21,4 +21,4 @@ class Command(BaseCommand):
         if chart not in CHART_SERVICES:
             raise CommandError('Unknown chart: {}'.format(chart))
         service = CHART_SERVICES[chart.lower()]()
-        service.fetch_hourly(dry_run=options['dry_run'], cmd=self, verbosity=options['verbosity'])
+        service.fetch_hourly(dry_run=options['dry_run'])

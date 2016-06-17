@@ -216,6 +216,10 @@ ADMIN_URL = env('DJANGO_ADMIN_URL')
 
 # Your production stuff: Below this line define 3rd party library settings
 CELERYBEAT_SCHEDULE = {
+    # Note: other charts will generally work better if updated after the
+    # current melon data has been fetched, in case of new songs to read.
+    # The melon hourly task should start any other update tasks when the melon
+    # task is completed.
     'melon-hourly': {
         'task': 'kchart.charts.tasks.update_melon_hourly_chart',
         'schedule': crontab(minute=1),
