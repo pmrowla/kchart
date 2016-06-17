@@ -4,12 +4,19 @@ from __future__ import absolute_import, unicode_literals
 from datetime import datetime
 
 from rest_framework.exceptions import NotFound
-from rest_framework.mixins import ListModelMixin
+from rest_framework.mixins import ListModelMixin, RetrieveModelMixin
 from rest_framework.viewsets import GenericViewSet
 
-from ..charts.models import HourlySongChart, MusicService
-from ..charts.serializers import HourlySongChartSerializer
-from ..charts.utils import KR_TZ, utcnow, strip_to_hour
+from ..charts.models import (
+    AggregateHourlySongChart,
+    HourlySongChart,
+    MusicService
+)
+from ..charts.serializers import (
+    HourlySongChartSerializer,
+    AggregateHourlySongChartSerializer
+)
+from ..charts.utils import KR_TZ
 
 
 class HourlySongChartViewSet(ListModelMixin, GenericViewSet):
@@ -37,3 +44,21 @@ class HourlySongChartViewSet(ListModelMixin, GenericViewSet):
             hour = HourlySongChart.objects.filter(chart__service=service).first().hour
         q = HourlySongChart.objects.filter(hour=hour)
         return q.all()
+
+
+class AggregateHourlySongChartViewSet(RetrieveModelMixin, GenericViewSet):
+    '''Viewset for viewing hourly song charts'''
+
+    serializer_class = AggregateHourlySongChartSerializer
+    lookup_field = 'hour'
+
+    def get_object(self):
+        q = AggregateHourlySongChart.objects
+        hour_str = self.request.query_params.get('hour', None)
+        if hour_str:
+            try:
+                hour = KR_TZ.localize(datetime.strptime(hour_str, '%Y%m%d%H'))
+            except ValueError:
+                raise NotFound('Invalid hour parameter')
+            q = q.filter(hour=hour)
+        return q.first()

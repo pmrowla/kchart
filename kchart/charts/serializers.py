@@ -11,6 +11,8 @@ from .models import (
     Chart,
     HourlySongChart,
     HourlySongChartEntry,
+    AggregateHourlySongChart,
+    AggregateHourlySongChartEntry,
 )
 
 
@@ -62,6 +64,15 @@ class ChartSerializer(serializers.ModelSerializer):
         fields = ('name', 'url')
 
 
+class AggregateChartSerializer(serializers.ModelSerializer):
+
+    weight = serializers.FloatField()
+
+    class Meta:
+        model = Chart
+        fields = ('name', 'url', 'weight')
+
+
 class HourlySongChartEntrySerializer(serializers.ModelSerializer):
 
     song = SongSerializer()
@@ -72,10 +83,14 @@ class HourlySongChartEntrySerializer(serializers.ModelSerializer):
         fields = ('song', 'position', 'prev_position')
 
 
-class AggregateChartEntrySerializer(serializers.Serializer):
+class AggregateChartEntrySerializer(serializers.ModelSerializer):
 
     song = SongSerializer()
-    total_score = serializers.FloatField()
+    prev_position = serializers.IntegerField()
+
+    class Meta:
+        model = AggregateHourlySongChartEntry
+        fields = ('song', 'total_score', 'position', 'prev_position')
 
 
 class HourlySongChartSerializer(serializers.ModelSerializer):
@@ -86,3 +101,13 @@ class HourlySongChartSerializer(serializers.ModelSerializer):
     class Meta:
         model = HourlySongChart
         fields = ('chart', 'hour', 'entries')
+
+
+class AggregateHourlySongChartSerializer(serializers.ModelSerializer):
+
+    component_charts = AggregateChartSerializer(many=True)
+    entries = AggregateChartEntrySerializer(many=True)
+
+    class Meta:
+        model = AggregateHourlySongChart
+        fields = ('name', 'component_charts', 'hour', 'entries')

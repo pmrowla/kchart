@@ -128,6 +128,10 @@ class Chart(models.Model):
     def __str__(self):
         return self.name
 
+    @property
+    def slug(self):
+        return self.service.slug
+
 
 class HourlySongChart(models.Model):
 
@@ -139,11 +143,18 @@ class HourlySongChart(models.Model):
         ordering = ['-hour', 'chart']
 
 
-class HourlySongChartEntry(models.Model):
+class BaseHourlySongChartEntry(models.Model):
 
-    hourly_chart = models.ForeignKey(HourlySongChart, on_delete=models.CASCADE, related_name='entries')
     song = models.ForeignKey(Song, on_delete=models.CASCADE)
     position = models.SmallIntegerField(_('Chart position'))
+
+    class Meta:
+        abstract = True
+
+
+class HourlySongChartEntry(BaseHourlySongChartEntry):
+
+    hourly_chart = models.ForeignKey(HourlySongChart, on_delete=models.CASCADE, related_name='entries')
 
     class Meta:
         unique_together = (('hourly_chart', 'song'), ('hourly_chart', 'position'))
@@ -161,11 +172,60 @@ class HourlySongChartEntry(models.Model):
         except HourlySongChartEntry.DoesNotExist:
             return None
 
+
+class AggregateHourlySongChartEntry(BaseHourlySongChartEntry):
+
+    hourly_chart = models.ForeignKey('AggregateHourlySongChart', on_delete=models.CASCADE, related_name='entries')
+    total_score = models.FloatField(_('Total song score'), default=0.0)
+
+    class Meta:
+        unique_together = (('hourly_chart', 'song'))
+        ordering = ['hourly_chart', 'position']
+
+    @property
+    def prev_position(self):
+        try:
+            prev_entry = AggregateHourlySongChartEntry.objects.get(
+                hourly_chart__hour=self.hourly_chart.hour - timedelta(hours=1),
+                song=self.song
+            )
+            return prev_entry.position
+        except AggregateHourlySongChartEntry.DoesNotExist:
+            return None
+
+
+class AggregateHourlySongChart(models.Model):
+
+    charts = models.ManyToManyField(HourlySongChart)
+    hour = models.DateTimeField(_('Chart start hour'), unique=True)
+
+    class Meta:
+        ordering = ['-hour']
+
+    @property
+    def name(self):
+        return _('kchart.io aggregated realtime chart')
+
+    @property
+    def component_charts(self):
+        component_charts = []
+        for c in self.charts.all():
+            component_charts.append(c.chart)
+        return component_charts
+
     @classmethod
-    def aggregate(hour=utcnow()):
-        '''Return an aggregate hourly chart'''
+    def generate(cls, hour=utcnow(), regenerate=False):
+        '''Generate an aggregate hourly chart'''
         hour = strip_to_hour(hour)
-        return HourlySongChartEntry.objects.filter(
+        aggregate_charts = HourlySongChart.objects.filter(hour=hour)
+        (chart, created) = AggregateHourlySongChart.objects.get_or_create(
+            hour=hour
+        )
+        if not created and not regenerate:
+            return chart
+        elif created:
+            chart.entries.clear()
+        entries = HourlySongChartEntry.objects.filter(
             hourly_chart__hour=hour
         ).values('song').annotate(
             total_score=Sum(
@@ -175,3 +235,18 @@ class HourlySongChartEntry(models.Model):
                 ) * F('hourly_chart__chart__weight')
             )
         ).order_by('-total_score')
+        for (i, entry) in enumerate(entries):
+            song = Song.objects.get(pk=entry['song'])
+            (new_entry, created) = AggregateHourlySongChartEntry.objects.get_or_create(
+                hourly_chart=chart,
+                song=song,
+                defaults={'total_score': entry['total_score'], 'position': i},
+            )
+            if not created:
+                new_entry.total_score = entry['total_score']
+                new_entry.position = i + 1
+                new_entry.save()
+        chart.charts.clear()
+        for c in aggregate_charts.all():
+            chart.charts.add(c)
+        return chart

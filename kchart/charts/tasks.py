@@ -7,12 +7,19 @@ from .chartservice import (
     GenieChartService,
     MelonChartService,
 )
+from .models import AggregateHourlySongChart
+
+
+@shared_task
+def aggregate_hourly_chart():
+    AggregateHourlySongChart.generate()
 
 
 @shared_task
 def update_genie_hourly_chart():
     genie = GenieChartService()
     genie.fetch_hourly()
+    aggregate_hourly_chart.delay()
 
 
 @shared_task
