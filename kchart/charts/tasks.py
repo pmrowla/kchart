@@ -4,6 +4,7 @@ from __future__ import unicode_literals, absolute_import
 from celery import shared_task
 
 from .chartservice import (
+    BugsChartService,
     GenieChartService,
     MelonChartService,
     MnetChartService,
@@ -17,10 +18,17 @@ def aggregate_hourly_chart():
 
 
 @shared_task
+def update_bugs_hourly_chart():
+    bugs = BugsChartService()
+    bugs.fetch_hourly()
+    aggregate_hourly_chart.delay()
+
+
+@shared_task
 def update_mnet_hourly_chart():
     mnet = MnetChartService()
     mnet.fetch_hourly()
-    aggregate_hourly_chart.delay()
+    update_bugs_hourly_chart.delay()
 
 
 @shared_task

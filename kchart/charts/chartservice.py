@@ -661,7 +661,7 @@ class GenieChartService(BaseChartService):
             if song:
                 break
         if not song:
-            logger.warning('no song for {}'.format(song_name))
+            logger.error('No match for genie song {}'.format(song_name))
             return None
         MusicServiceSong.objects.get_or_create(
             song=song,
@@ -830,7 +830,7 @@ class MnetChartService(BaseChartService):
             return song_data
         song = self.match_to_other_service(MelonChartService, song_data, album_data, artists)
         if not song:
-            logger.warning('no song for {}'.format(song_data['song_name']))
+            logger.error('No match for mnet song {}'.format(song_data['song_name']))
             return None
         else:
             return {'song': song, 'position': rank}
@@ -917,6 +917,145 @@ class BugsChartService(BaseChartService):
                 'weight': 0.125,
             }
         )
+
+    def _get_song_id_from_a(self, a):
+        m = re.match(r"^.*bugs\.music\.listen\('(?P<song_id>\d+)'", a.get('onclick'))
+        if m:
+            return int(m.group('song_id'))
+        return None
+
+    def _get_artist_id_from_a(self, a):
+        m = re.match(r'^.*/artist/(?P<artist_id>\d+)', a.get('href'))
+        if m:
+            return int(m.group('artist_id'))
+        return None
+
+    @classmethod
+    def _unbugsify_name(cls, name):
+        m = re.match(r'^(.*)\[(.+)\]$', name.strip())
+        if m:
+            member_name = m.group(1)
+            group_name = m.group(2)
+            # replace square braces with parentheses unless this artist
+            # already has an alternate name in parentheses, in which
+            # case drop whatever was inside the square braces
+            if '(' not in member_name:
+                name = '{} ({})'.format(member_name, group_name).strip()
+            else:
+                name = member_name.strip()
+        return name
+
+    def _get_multi_artists_from_a(self, a):
+        artists = []
+        pattern = r"^(?:.*openMultiArtistSearchResultPopLayer\(.+,\s+')(?P<artist_list>.+\|\|.+\|\|\d+(?:\\n)?)+'"
+        m = re.match(pattern, a.get('onclick'))
+        if m:
+            for artist in m.group('artist_list').split('\\\\n'):
+                (short_name, name, artist_id) = artist.split('||')
+                artists.append({
+                    'artist_name': MelonChartService.melonify_name(self._unbugsify_name(name)),
+                    'artist_id': int(artist_id),
+                })
+        return artists
+
+    def _get_album_id_from_a(self, a):
+        m = re.match(r'^.*/album/(?P<album_id>\d+)', a.get('href'))
+        if m:
+            return int(m.group('album_id'))
+        return None
+
+    def _scrape_chart_row(self, tr, dry_run=False):
+        rank_span = tr.find("./td/div[@class='ranking']/strong")
+        rank = int(rank_span.text.strip())
+        song_a = tr.find("./th/p[@class='title']/a")
+        song_data = {
+            'song_id': self._get_song_id_from_a(song_a),
+            'song_name': MelonChartService.melonify_name(song_a.text.strip()),
+        }
+        if tr.get('multiartist') == 'Y':
+            artist_a = tr.find("./td/p[@class='artist']/a[@class='more']")
+            artists = self._get_multi_artists_from_a(artist_a)
+        else:
+            artist_a = tr.find("./td/p[@class='artist']/a")
+            artists = [{
+                'artist_id': self._get_artist_id_from_a(artist_a),
+                'artist_name': MelonChartService.melonify_name(self._unbugsify_name(artist_a.text.strip())),
+            }]
+        album_a = tr.find("./td/a[@class='album']")
+        album_data = {
+            'album_id': self._get_album_id_from_a(album_a),
+            'album_name': MelonChartService.melonify_name(album_a.text.strip()),
+        }
+        if dry_run:
+            song_data.update(album_data)
+            song_data['artists'] = artists
+            song_data['rank'] = rank
+            logger.debug(song_data)
+            return song_data
+        song = self.match_to_other_service(MelonChartService, song_data, album_data, artists)
+        if not song:
+            logger.error('No match for bugs song {}'.format(song_data['song_name']))
+            return None
+        else:
+            return {'song': song, 'position': rank}
+
+    def _get_hourly_chart(self, hour, dry_run=False):
+        kr_hour = hour.astimezone(KR_TZ)
+        url = self.hourly_chart.url
+        params = {
+            'chartdate': kr_hour.strftime('%Y%m%d'),
+            'charthour': kr_hour.strftime('%H'),
+        }
+        r = requests.get(url, params=params)
+        r.raise_for_status()
+        html = fromstring(r.text)
+        chart_table = html.find_class('byChart')
+        if len(chart_table) != 1:
+            raise RuntimeError('Got unexpected bugs chart HTML')
+        entries = []
+        for tr in chart_table[0].findall('.//tbody/tr'):
+            entry = self._scrape_chart_row(tr, dry_run=dry_run)
+            if entry:
+                entries.append(entry)
+        return entries
+
+    def fetch_hourly(self, hour=None, dry_run=False, force_update=False):
+        if hour:
+            hour = strip_to_hour(hour)
+        else:
+            hour = strip_to_hour(utcnow())
+        if not force_update:
+            try:
+                chart = HourlySongChart.objects.get(chart=self.hourly_chart, hour=hour)
+                if chart and chart.entries.count() == 100 and not force_update:
+                    logger.debug('Already fetched this chart')
+                    return
+            except ObjectDoesNotExist:
+                pass
+            except MultipleObjectsReturned:
+                pass
+        bugs_data = self._get_hourly_chart(hour, dry_run=dry_run)
+        if len(bugs_data) != 100:
+            logger.warning('Bugs returned unexpected number of chart entries: {}'.format(len(bugs_data)))
+        logger.info('Fetched bugs realtime chart for {}'.format(hour))
+        if dry_run:
+            return
+        (hourly_song_chart, created) = HourlySongChart.objects.get_or_create(chart=self.hourly_chart, hour=hour)
+        if not created and hourly_song_chart.entries.count() == 100:
+            logger.debug('Already fetched this chart')
+            return
+        for song_data in bugs_data:
+            if song_data['song']:
+                defaults = {'position': song_data['position']}
+                (chart_entry, created) = HourlySongChartEntry.objects.get_or_create(
+                    hourly_chart=hourly_song_chart,
+                    song=song_data['song'],
+                    defaults=defaults
+                )
+                if not created and chart_entry.position != song_data['position']:
+                    chart_entry.position = song_data['position']
+                    chart_entry.save()
+        logger.debug('Wrote bugs realtime chart for {} to database'.format(hour))
 
 
 # Add chart services to process here
