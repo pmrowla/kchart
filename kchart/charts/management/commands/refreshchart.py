@@ -4,7 +4,6 @@ from __future__ import unicode_literals, absolute_import
 from django.core.management.base import BaseCommand, CommandError
 
 from kchart.charts.chartservice import CHART_SERVICES
-from kchart.charts.models import AggregateHourlySongChart
 
 
 class Command(BaseCommand):
@@ -15,8 +14,6 @@ class Command(BaseCommand):
         super(Command, self).add_arguments(parser)
         parser.add_argument('--dry-run', dest='dry_run', action='store_true',
                             help='Fetch data but do not write chart updates to the database')
-        parser.add_argument('--aggregate', dest='aggregate', action='store_true',
-                            help='(Re)generate aggregated chart after update')
         parser.add_argument('chart', nargs='*')
 
     def handle(self, *args, **options):
@@ -27,5 +24,3 @@ class Command(BaseCommand):
                 raise CommandError('historical melon data cannot be retrieved')
             service = CHART_SERVICES[chart.lower()]()
             service.refetch_incomplete(dry_run=options['dry_run'])
-        if options['aggregate']:
-            AggregateHourlySongChart.generate(regenerate=True)

@@ -23,6 +23,7 @@ from .models import (
     Chart,
     HourlySongChart,
     HourlySongChartEntry,
+    AggregateHourlySongChart,
 )
 from .utils import KR_TZ, strip_to_hour, utcnow, melon_hour
 
@@ -87,6 +88,8 @@ class BaseChartService(object):
         logger.info('Refetching {} incomplete {} charts'.format(len(incomplete), self.SLUG))
         for chart in incomplete:
             self.fetch_hourly(hour=chart.hour, dry_run=dry_run, force_update=True)
+            if not dry_run:
+                AggregateHourlySongChart.generate(hour=chart.hour, regenerate=True)
 
     @classmethod
     def match_song(cls, alt_service, song, album, artists, try_artist=False, try_album=False):
