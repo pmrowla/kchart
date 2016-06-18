@@ -6,6 +6,7 @@ import logging
 import re
 
 from lxml.html import fromstring
+from fake_useragent import UserAgent
 import requests
 
 from django.conf import settings
@@ -29,6 +30,8 @@ from .utils import KR_TZ, strip_to_hour, utcnow, melon_hour
 
 
 logger = logging.getLogger('django')
+
+ua = UserAgent()
 
 
 class BaseChartService(object):
@@ -266,7 +269,8 @@ class MelonChartService(BaseChartService):
     def _scrape_artist_info(self, melon_id):
         artist_info = {'melon_id': melon_id, 'debut_date': None}
         url = self.ARTIST_URL.format(artist_id=melon_id)
-        r = requests.get(url)
+        headers = {'User-Agent': ua.random}
+        r = requests.get(url, headers=headers)
         r.raise_for_status()
         html = fromstring(r.text)
         title = html.find_class('title_atist')
@@ -641,7 +645,8 @@ class GenieChartService(BaseChartService):
 
     def _split_genie_artist(self, name, artist_id):
         url = self.ARTIST_URL.format(artist_id=artist_id)
-        r = requests.get(url)
+        headers = {'User-Agent': ua.random}
+        r = requests.get(url, headers=headers)
         r.raise_for_status()
         html = fromstring(r.text)
         if '&' in name:
@@ -735,7 +740,8 @@ class GenieChartService(BaseChartService):
             'hh': kr_hour.strftime('%H'),
             'pg': page,
         }
-        r = requests.get(url, params=params)
+        headers = {'User-Agent': ua.random}
+        r = requests.get(url, params=params, headers=headers)
         r.raise_for_status()
         html = fromstring(r.text)
         song_list = html.find_class('list-wrap')
@@ -879,7 +885,8 @@ class MnetChartService(BaseChartService):
         params = {
             'pNum': page,
         }
-        r = requests.get(url, params=params)
+        headers = {'User-Agent': ua.random}
+        r = requests.get(url, params=params, headers=headers)
         r.raise_for_status()
         html = fromstring(r.text)
         chart_div = html.find_class('MMLTable')
@@ -1044,7 +1051,8 @@ class BugsChartService(BaseChartService):
             'chartdate': kr_hour.strftime('%Y%m%d'),
             'charthour': kr_hour.strftime('%H'),
         }
-        r = requests.get(url, params=params)
+        headers = {'User-Agent': ua.random}
+        r = requests.get(url, params=params, headers=headers)
         r.raise_for_status()
         html = fromstring(r.text)
         chart_table = html.find_class('byChart')

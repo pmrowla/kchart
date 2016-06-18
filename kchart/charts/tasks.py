@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals, absolute_import
 
-from celery import shared_task
+from celery import shared_task, chain
 
 from .chartservice import (
     BugsChartService,
@@ -42,4 +42,9 @@ def update_genie_hourly_chart():
 def update_melon_hourly_chart():
     melon = MelonChartService()
     melon.fetch_hourly()
-    update_genie_hourly_chart.delay()
+    chain(
+        update_genie_hourly_chart.s(),
+        update_mnet_hourly_chart.s(),
+        update_bugs_hourly_chart.s(),
+        aggregate_hourly_chart.s(),
+    )

@@ -54,5 +54,6 @@ django-filter==0.13.0
 
 # requests
 requests==2.10.0
+fake-useragent==0.0.8
 
 lxml==3.6.0
