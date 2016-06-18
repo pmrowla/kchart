@@ -74,6 +74,74 @@ class BaseChartService(object):
         '''
         raise NotImplementedError
 
+    @classmethod
+    def match_song(cls, alt_service, song, album, artists, try_artist=False, try_album=False):
+        '''Attempt to match an alternate service song to a song from this service
+
+        If an exact match is found, the database will be updated accordingly
+
+        :param MusicService alt_service: The alternate service
+        :param dict song: A dictionary of the form {'song_name': <name>, 'song_id': <id>}
+            containing alternate service's name and ID
+        :param dict album: A dictionary of the form {'album_name': <name>, 'album_id': <id>}
+            containing alternate service's name and ID
+        :param list artists: A list of dictionaries of the form [{'album_name': <name>, 'album_id': <id>}]
+            containing alternate service's name and ID
+        '''
+        raise NotImplementedError
+
+    def match_to_other_service(self, alt_service_cls, song_data, album_data, artists):
+        '''Attempt to match a song for this service to another service
+
+        If an exact match is found, the database will be updated accordingly
+
+        :param callable alt_service_cls: The class for the alternate service.
+            Matching is done via alt_service_cls.match_song
+        :param dict song: A dictionary of the form {'song_name': <name>, 'song_id': <id>}
+            containing alternate service's name and ID
+        :param dict album: A dictionary of the form {'album_name': <name>, 'album_id': <id>}
+            containing alternate service's name and ID
+        :param list artists: A list of dictionaries of the form [{'album_name': <name>, 'album_id': <id>}]
+            containing alternate service's name and ID
+        '''
+        search_kwargs = [
+            {'try_artist': False, 'try_album': False},
+            {'try_artist': True, 'try_album': False},
+            {'try_artist': False, 'try_album': True},
+            {'try_artist': True, 'try_album': True},
+        ]
+        song = None
+        for kwargs in search_kwargs:
+            song = alt_service_cls.match_song(self.service, song_data, album_data, artists, **kwargs)
+            if song:
+                break
+        if not song:
+            logger.warning('no song for {}'.format(song_data['song_name']))
+            return None
+        MusicServiceSong.objects.get_or_create(
+            song=song,
+            service=self.service,
+            defaults={'service_song_id': song_data['song_id']}
+        )
+        MusicServiceAlbum.objects.get_or_create(
+            album=song.album,
+            service=self.service,
+            defaults={'service_album_id': album_data['album_id']}
+        )
+        for artist in artists:
+            melon = alt_service_cls()
+            if 'melon_id' in artist:
+                melon_artist = MusicServiceArtist.objects.get(
+                    service=melon.service,
+                    service_artist_id=artist['melon_id']
+                )
+                MusicServiceArtist.objects.get_or_create(
+                    artist=melon_artist.artist,
+                    service=self.service,
+                    defaults={'service_artist_id': artist['artist_id']}
+                )
+        return song
+
 
 class MelonChartService(BaseChartService):
 
@@ -277,6 +345,10 @@ class MelonChartService(BaseChartService):
         if data['count']:
             artists = data['artists']['artist']
         else:
+            m = re.match(r'^(.*)\(.*\)$', name.strip())
+            if m:
+                name = m.group(1).strip()
+                return cls.search_artist(name, page)
             artists = None
         if data['totalPages'] > data['page']:
             next_page = data['page'] + 1
@@ -285,9 +357,20 @@ class MelonChartService(BaseChartService):
         return (artists, next_page)
 
     @classmethod
-    def search_album(cls, name, page=1, artist_names=[]):
+    def melonify_name(cls, name):
+        # Melon use U+FFE6 FULLWIDTH WON SIGN
+        # Other services use U+20A9 WON SIGN
+        name = name.replace('₩', '￦')
+        return name
+
+    @classmethod
+    def search_album(cls, name, page=1, artist_names=[], replace_amp=True):
         url = 'http://apis.skplanetx.com/melon/albums'
-        name = name.replace(' & ', ' and ')
+        orig_name = name
+        replaced_amp = False
+        if replace_amp:
+            replaced_amp = True
+            name = name.replace(' & ', ' and ')
         m = re.match(r'^(.*ost.*)\(.*\)$', name, re.I)
         if m:
             name = m.group(1).strip()
@@ -301,6 +384,14 @@ class MelonChartService(BaseChartService):
         if data['count']:
             albums = data['albums']['album']
         else:
+            if replaced_amp:
+                return cls.search_album(orig_name, page, artist_names, replace_amp=False)
+            m = re.match(r'^(.*\s)(?:album)(\s.*)?$', name, re.I)
+            if m:
+                name = m.group(1)
+                if m.group(2):
+                    name += m.group(2)
+                return cls.search_album(name, page, artist_names)
             if artist_names:
                 retry_names = []
                 retry = False
@@ -368,42 +459,21 @@ class MelonChartService(BaseChartService):
 
     @classmethod
     def match_song(cls, alt_service, song, album, artists, try_artist=False, try_album=False):
-        '''Attempt to match an alternate service song to a melon song
-
-        If an exact match is found, the database will be updated accordingly
-
-        :param MusicService alt_service: The alternate service
-        :param dict song: A dictionary of the form {'song_name': <name>, 'song_id': <id>}
-            containing alternate service's name and ID
-        :param dict album: A dictionary of the form {'album_name': <name>, 'album_id': <id>}
-            containing alternate service's name and ID
-        :param list artists: A list of dictionaries of the form [{'album_name': <name>, 'album_id': <id>}]
-            containing alternate service's name and ID
-        '''
         melon = cls()
         try:
             # If we've already matched this song just return it
             alt_song = MusicServiceSong.objects.get(service=alt_service, service_song_id=song['song_id'])
             return alt_song.song
         except MusicServiceSong.DoesNotExist:
-            search_kwargs = {}
-            if try_artist:
-                artist_names = []
-                for artist in artists:
-                    artist_names.append(artist['artist_name'])
-                search_kwargs['artist_names'] = artist_names
-            if try_album:
-                search_kwargs['album_name'] = album['album_name']
-            (results, next_page) = cls.search_song(song['song_name'], **search_kwargs)
-            if not results:
-                return None
-            song['search_results'] = (results, next_page)
+            pass
         for artist in artists:
             try:
                 # Check for existing matched artists
                 a = MusicServiceArtist.objects.get(service=alt_service, service_artist_id=artist['artist_id'])
                 melon_artist = MusicServiceArtist.objects.get(service=melon.service, artist=a.artist)
                 artist['melon_id'] = melon_artist.service_artist_id
+                # replace service name with melon name for search purposes
+                artist['artist_name'] = a.artist.name
             except MusicServiceArtist.DoesNotExist:
                 (results, next_page) = cls.search_artist(artist['artist_name'])
                 if not results:
@@ -414,6 +484,8 @@ class MelonChartService(BaseChartService):
             a = MusicServiceAlbum.objects.get(service=alt_service, service_album_id=album['album_id'])
             melon_album = MusicServiceAlbum.objects.get(service=melon.service, album=a.album)
             album['melon_id'] = melon_album.service_album_id
+            # replace service name with melon name for search purposes
+            album['album_name'] = a.album.name
         except MusicServiceAlbum.DoesNotExist:
             search_kwargs = {}
             if try_artist:
@@ -425,6 +497,18 @@ class MelonChartService(BaseChartService):
             if not results:
                 return None
             album['search_results'] = (results, next_page)
+        search_kwargs = {}
+        if try_artist:
+            artist_names = []
+            for artist in artists:
+                artist_names.append(artist['artist_name'])
+            search_kwargs['artist_names'] = artist_names
+        if try_album:
+            search_kwargs['album_name'] = album['album_name']
+        (results, next_page) = cls.search_song(song['song_name'], **search_kwargs)
+        if not results:
+            return None
+        song['search_results'] = (results, next_page)
         inst = bool(re.match('inst', song['song_name'], re.I))
         matched_song = None
         for potential_song in song['search_results'][0]:
@@ -534,7 +618,7 @@ class GenieChartService(BaseChartService):
                 for li in artist_list.findall('./ul/li'):
                     artist_a = li.find('./a')
                     artist_id = self._get_artist_id_from_a(artist_a)
-                    artist_name = li.text_content().strip()
+                    artist_name = MelonChartService.melonify_name(li.text_content().strip())
                     artists.append({'artist_name': artist_name, 'artist_id': artist_id})
                 return artists
         return [{'artist_name': name, 'artist_id': artist_id}]
@@ -558,8 +642,13 @@ class GenieChartService(BaseChartService):
         album_name = album_a.text.strip()
         title_a = music_span.find("./a[@class='title']")
         song_name = title_a.text.strip()
-        song_data = {'song_name': song_name, 'song_id': song_id}
-        album = {'album_name': album_name, 'album_id': album_id}
+        song_data = {'song_name': MelonChartService.melonify_name(song_name), 'song_id': song_id}
+        album = {'album_name': MelonChartService.melonify_name(album_name), 'album_id': album_id}
+        if dry_run:
+            song_data.update(album)
+            song_data['artists'] = artists
+            logger.debug(song_data)
+            return song_data
         search_kwargs = [
             {'try_artist': False, 'try_album': False},
             {'try_artist': True, 'try_album': False},
@@ -664,8 +753,176 @@ class GenieChartService(BaseChartService):
         logger.debug('Wrote genie realtime chart for {} to database'.format(hour))
 
 
+class MnetChartService(BaseChartService):
+
+    NAME = 'Mnet'
+    URL = 'http://www.mnet.com'
+    ARTIST_URL = 'http://www.mnet.com/artist/{artist_id}'
+    ALBUM_URL = 'http://www.mnet.com/album/{album_id}'
+    SONG_URL = 'http://www.mnet.com/track/{song_id}'
+    SLUG = 'mnet'
+
+    def __init__(self):
+        super(MnetChartService, self).__init__()
+        (self.hourly_chart, created) = Chart.objects.get_or_create(
+            service=self.service,
+            defaults={
+                'name': 'Mnet hourly top 100',
+                'url': 'http://www.mnet.com/chart/top100/',
+                'weight': 0.125,
+            }
+        )
+
+    def _get_song_id_from_a(self, a):
+        patterns = [
+            r"^.*mnetCom\.aodPlay\('(?P<song_id>\d+)'\)",
+            r'/track/(?P<song_id>\d+)',
+        ]
+        for pattern in patterns:
+            m = re.match(pattern, a.get('href'))
+            if m:
+                return int(m.group('song_id'))
+        return None
+
+    def _get_artist_id_from_a(self, a):
+        m = re.match(r'^.*artist/(?P<artist_id>\d+)', a.get('href'))
+        if m:
+            return int(m.group('artist_id'))
+        return None
+
+    def _get_album_id_from_a(self, a):
+        m = re.match(r'^.*/album/(?P<album_id>\d+)', a.get('href'))
+        if m:
+            return int(m.group('album_id'))
+        return None
+
+    def _scrape_chart_row(self, tr, dry_run=False):
+        rank = None
+        rank_span = tr.find_class('MMLI_RankNum')[0]
+        for cls in rank_span.classes:
+            m = re.match('^MMLI_RankNum(?:Best)?_(?P<rank>\d+)$', cls.strip())
+            if m:
+                rank = int(m.group('rank'))
+                break
+        if not rank:
+            raise RuntimeError('Got unexpected mnet chart HTML')
+        song_a = tr.find(".//a[@class='MMLI_Song']")
+        song_data = {
+            'song_id': self._get_song_id_from_a(song_a),
+            'song_name': MelonChartService.melonify_name(song_a.text.strip()),
+        }
+        artists = []
+        for artist_a in tr.findall(".//a[@class='MMLIInfo_Artist']"):
+            artist_data = {
+                'artist_id': self._get_artist_id_from_a(artist_a),
+                'artist_name': MelonChartService.melonify_name(artist_a.text.strip()),
+            }
+            artists.append(artist_data)
+        album_a = tr.find(".//a[@class='MMLIInfo_Album']")
+        album_data = {
+            'album_id': self._get_album_id_from_a(album_a),
+            'album_name': MelonChartService.melonify_name(album_a.text.strip()),
+        }
+        if dry_run:
+            song_data.update(album_data)
+            song_data['artists'] = artists
+            logger.debug(song_data)
+            return song_data
+        song = self.match_to_other_service(MelonChartService, song_data, album_data, artists)
+        if not song:
+            logger.warning('no song for {}'.format(song_data['song_name']))
+            return None
+        else:
+            return {'song': song, 'position': rank}
+
+    def _scrape_hourly_chart_page(self, hour, page=1, dry_run=False):
+        kr_hour = hour.astimezone(KR_TZ)
+        url = '{}{}'.format(self.hourly_chart.url, kr_hour.strftime('%Y%m%d%H'))
+        params = {
+            'pNum': page,
+        }
+        r = requests.get(url, params=params)
+        r.raise_for_status()
+        html = fromstring(r.text)
+        chart_div = html.find_class('MMLTable')
+        if len(chart_div) != 1:
+            raise RuntimeError('Got unexpected genie chart HTML')
+        entries = []
+        for tr in chart_div[0].findall('.//tbody/tr'):
+            entry = self._scrape_chart_row(tr, dry_run=dry_run)
+            if entry:
+                entries.append(entry)
+        return entries
+
+    def _get_hourly_chart(self, hour, dry_run=False):
+        pg1_data = self._scrape_hourly_chart_page(hour, page=1, dry_run=dry_run)
+        pg2_data = self._scrape_hourly_chart_page(hour, page=2, dry_run=dry_run)
+        return pg1_data + pg2_data
+
+    def fetch_hourly(self, hour=None, dry_run=False, force_update=False):
+        if hour:
+            hour = strip_to_hour(hour)
+        else:
+            hour = strip_to_hour(utcnow())
+        if not force_update:
+            try:
+                chart = HourlySongChart.objects.get(chart=self.hourly_chart, hour=hour)
+                if chart and chart.entries.count() == 100 and not force_update:
+                    logger.debug('Already fetched this chart')
+                    return
+            except ObjectDoesNotExist:
+                pass
+            except MultipleObjectsReturned:
+                pass
+        mnet_data = self._get_hourly_chart(hour, dry_run=dry_run)
+        if len(mnet_data) != 100:
+            logger.warning('Mnet returned unexpected number of chart entries: {}'.format(len(mnet_data)))
+        logger.info('Fetched mnet realtime chart for {}'.format(hour))
+        if dry_run:
+            return
+        (hourly_song_chart, created) = HourlySongChart.objects.get_or_create(chart=self.hourly_chart, hour=hour)
+        if not created and hourly_song_chart.entries.count() == 100:
+            logger.debug('Already fetched this chart')
+            return
+        for song_data in mnet_data:
+            if song_data['song']:
+                defaults = {'position': song_data['position']}
+                (chart_entry, created) = HourlySongChartEntry.objects.get_or_create(
+                    hourly_chart=hourly_song_chart,
+                    song=song_data['song'],
+                    defaults=defaults
+                )
+                if not created and chart_entry.position != song_data['position']:
+                    chart_entry.position = song_data['position']
+                    chart_entry.save()
+        logger.debug('Wrote mnet realtime chart for {} to database'.format(hour))
+
+
+class BugsChartService(BaseChartService):
+
+    NAME = 'Bugs!'
+    URL = 'http://www.bugs.co.kr/'
+    ARTIST_URL = 'http://music.bugs.co.kr/artist/{artist_id}'
+    ALBUM_URL = 'http://music.bugs.co.kr/album/{album_id}'
+    SONG_URL = 'http://music.bugs.co.kr/track/{song_id}'
+    SLUG = 'bugs'
+
+    def __init__(self):
+        super(BugsChartService, self).__init__()
+        (self.hourly_chart, created) = Chart.objects.get_or_create(
+            service=self.service,
+            defaults={
+                'name': 'Bugs! hourly top 100',
+                'url': 'http://music.bugs.co.kr/chart/track/realtime/total',
+                'weight': 0.125,
+            }
+        )
+
+
 # Add chart services to process here
 CHART_SERVICES = {
     'melon': MelonChartService,
     'genie': GenieChartService,
+    'mnet': MnetChartService,
+    'bugs': BugsChartService,
 }

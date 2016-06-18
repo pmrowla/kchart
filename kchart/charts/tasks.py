@@ -6,6 +6,7 @@ from celery import shared_task
 from .chartservice import (
     GenieChartService,
     MelonChartService,
+    MnetChartService,
 )
 from .models import AggregateHourlySongChart
 
@@ -16,10 +17,17 @@ def aggregate_hourly_chart():
 
 
 @shared_task
+def update_mnet_hourly_chart():
+    mnet = MnetChartService()
+    mnet.fetch_hourly()
+    aggregate_hourly_chart.delay()
+
+
+@shared_task
 def update_genie_hourly_chart():
     genie = GenieChartService()
     genie.fetch_hourly()
-    aggregate_hourly_chart.delay()
+    update_mnet_hourly_chart.delay()
 
 
 @shared_task
