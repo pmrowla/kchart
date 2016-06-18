@@ -26,7 +26,7 @@ from .models import (
 from .utils import KR_TZ, strip_to_hour, utcnow, melon_hour
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('django')
 
 
 class BaseChartService(object):
@@ -115,6 +115,17 @@ class BaseChartService(object):
             song = alt_service_cls.match_song(self.service, song_data, album_data, artists, **kwargs)
             if song:
                 break
+        else:
+            drop_parens = False
+            for artist in artists:
+                if '(' in artist['artist_name']:
+                    # if artist_name ends in parentheses it's probably a
+                    # translation, try without the translation as a last resort
+                    artist['artist_name'] = re.sub('\(.+\)$', '', artist['artist_name'])
+                    drop_parens = True
+            if drop_parens:
+                song = alt_service_cls.match_song(self.service, song_data, album_data,
+                                                  artists, try_artist=True, try_album=True)
         if not song:
             logger.warning('no song for {}'.format(song_data['song_name']))
             return None
@@ -296,7 +307,7 @@ class MelonChartService(BaseChartService):
             try:
                 chart = HourlySongChart.objects.get(chart=self.hourly_chart, hour=hour)
                 if chart and chart.entries.count() and not force_update:
-                    logger.debug('Already fetched this chart')
+                    logger.info('Skipping fetch for existing melon chart')
                     return
             except ObjectDoesNotExist:
                 pass
@@ -317,7 +328,7 @@ class MelonChartService(BaseChartService):
             return
         (hourly_song_chart, created) = HourlySongChart.objects.get_or_create(chart=self.hourly_chart, hour=rank_hour)
         if not created and hourly_song_chart.entries.count() and not force_update:
-            logger.debug('Already fetched this chart')
+            logger.info('Skipping db update for existing melon chart')
             return
         for song_data in melon_data['songs']['song']:
             song = self.get_or_create_song_from_melon_data(song_data)
@@ -330,7 +341,7 @@ class MelonChartService(BaseChartService):
             if not created and chart_entry.position != song_data['currentRank']:
                 chart_entry.position = song_data['currentRank']
                 chart_entry.save()
-        logger.debug('Wrote melon realtime chart for {} to database'.format(rank_hour))
+        logger.info('Wrote melon realtime chart for {} to database'.format(rank_hour))
 
     @classmethod
     def search_artist(cls, name, page=1):
@@ -349,6 +360,7 @@ class MelonChartService(BaseChartService):
             if m:
                 name = m.group(1).strip()
                 return cls.search_artist(name, page)
+            logger.info('No artist search results for {}'.format(params['searchKeyword']))
             artists = None
         if data['totalPages'] > data['page']:
             next_page = data['page'] + 1
@@ -360,7 +372,8 @@ class MelonChartService(BaseChartService):
     def melonify_name(cls, name):
         # Melon use U+FFE6 FULLWIDTH WON SIGN
         # Other services use U+20A9 WON SIGN
-        name = name.replace('₩', '￦')
+        name = re.sub('[₩]', '￦', name)
+        name = re.sub('[\'"`‘]', '', name)
         return name
 
     @classmethod
@@ -374,6 +387,9 @@ class MelonChartService(BaseChartService):
         m = re.match(r'^(.*ost.*)\(.*\)$', name, re.I)
         if m:
             name = m.group(1).strip()
+        m = re.match(r'^(.*)\(.*\)(.*ost.*)$', name, re.I)
+        if m:
+            name = '{} {}'.format(m.group(1), m.group(2)).strip()
         params = {
             'version': 1,
             'page': page,
@@ -403,6 +419,7 @@ class MelonChartService(BaseChartService):
                     retry_names.append(artist_name)
                 if retry:
                     return cls.search_album(name, page, retry_names)
+            logger.info('No album search results for {}'.format(params['searchKeyword']))
             albums = None
         if data['totalPages'] > data['page']:
             next_page = data['page'] + 1
@@ -439,6 +456,7 @@ class MelonChartService(BaseChartService):
                     retry_names.append(artist_name)
                 if retry:
                     return cls.search_song(name, page, artist_names=retry_names, album_name=album_name)
+            logger.info('No song search results for {}'.format(params['searchKeyword']))
             songs = None
         if data['totalPages'] > data['page']:
             next_page = data['page'] + 1
@@ -562,10 +580,10 @@ class MelonChartService(BaseChartService):
                                         break
                         break
         if matched_song:
-            logger.info('Got matched song: {}'.format(matched_song))
+            logger.debug('Got matched song: {}'.format(matched_song))
             return cls.get_or_create_song_from_melon_data(matched_song)
         else:
-            logger.info('Could not find match for song {}'.format(song))
+            logger.debug('Could not find match for song {}'.format(song))
             return None
 
 
@@ -724,7 +742,7 @@ class GenieChartService(BaseChartService):
             try:
                 chart = HourlySongChart.objects.get(chart=self.hourly_chart, hour=hour)
                 if chart and chart.entries.count() == 100 and not force_update:
-                    logger.debug('Already fetched this chart')
+                    logger.info('Skipping fetch for existing genie chart')
                     return
             except ObjectDoesNotExist:
                 pass
@@ -738,7 +756,7 @@ class GenieChartService(BaseChartService):
             return
         (hourly_song_chart, created) = HourlySongChart.objects.get_or_create(chart=self.hourly_chart, hour=hour)
         if not created and hourly_song_chart.entries.count() == 100:
-            logger.debug('Already fetched this chart')
+            logger.info('Skipping db update for existing genie chart')
             return
         for song_data in genie_data:
             defaults = {'position': song_data['position']}
@@ -750,7 +768,7 @@ class GenieChartService(BaseChartService):
             if not created and chart_entry.position != song_data['position']:
                 chart_entry.position = song_data['position']
                 chart_entry.save()
-        logger.debug('Wrote genie realtime chart for {} to database'.format(hour))
+        logger.info('Wrote genie realtime chart for {} to database'.format(hour))
 
 
 class MnetChartService(BaseChartService):
@@ -868,7 +886,7 @@ class MnetChartService(BaseChartService):
             try:
                 chart = HourlySongChart.objects.get(chart=self.hourly_chart, hour=hour)
                 if chart and chart.entries.count() == 100 and not force_update:
-                    logger.debug('Already fetched this chart')
+                    logger.info('Skipping fetch for existing mnet chart')
                     return
             except ObjectDoesNotExist:
                 pass
@@ -882,7 +900,7 @@ class MnetChartService(BaseChartService):
             return
         (hourly_song_chart, created) = HourlySongChart.objects.get_or_create(chart=self.hourly_chart, hour=hour)
         if not created and hourly_song_chart.entries.count() == 100:
-            logger.debug('Already fetched this chart')
+            logger.info('Skipping db update for existing mnet chart')
             return
         for song_data in mnet_data:
             if song_data['song']:
@@ -895,7 +913,7 @@ class MnetChartService(BaseChartService):
                 if not created and chart_entry.position != song_data['position']:
                     chart_entry.position = song_data['position']
                     chart_entry.save()
-        logger.debug('Wrote mnet realtime chart for {} to database'.format(hour))
+        logger.info('Wrote mnet realtime chart for {} to database'.format(hour))
 
 
 class BugsChartService(BaseChartService):
@@ -931,7 +949,7 @@ class BugsChartService(BaseChartService):
         return None
 
     @classmethod
-    def _unbugsify_name(cls, name):
+    def _unbugsify_artist_name(cls, name):
         m = re.match(r'^(.*)\[(.+)\]$', name.strip())
         if m:
             member_name = m.group(1)
@@ -953,7 +971,7 @@ class BugsChartService(BaseChartService):
             for artist in m.group('artist_list').split('\\\\n'):
                 (short_name, name, artist_id) = artist.split('||')
                 artists.append({
-                    'artist_name': MelonChartService.melonify_name(self._unbugsify_name(name)),
+                    'artist_name': MelonChartService.melonify_name(self._unbugsify_artist_name(name)),
                     'artist_id': int(artist_id),
                 })
         return artists
@@ -979,7 +997,7 @@ class BugsChartService(BaseChartService):
             artist_a = tr.find("./td/p[@class='artist']/a")
             artists = [{
                 'artist_id': self._get_artist_id_from_a(artist_a),
-                'artist_name': MelonChartService.melonify_name(self._unbugsify_name(artist_a.text.strip())),
+                'artist_name': MelonChartService.melonify_name(self._unbugsify_artist_name(artist_a.text.strip())),
             }]
         album_a = tr.find("./td/a[@class='album']")
         album_data = {
@@ -994,7 +1012,7 @@ class BugsChartService(BaseChartService):
             return song_data
         song = self.match_to_other_service(MelonChartService, song_data, album_data, artists)
         if not song:
-            logger.error('No match for bugs song {}'.format(song_data['song_name']))
+            logger.error('No match for bugs song {} {} {}'.format(song_data, album_data, artists))
             return None
         else:
             return {'song': song, 'position': rank}
@@ -1028,7 +1046,7 @@ class BugsChartService(BaseChartService):
             try:
                 chart = HourlySongChart.objects.get(chart=self.hourly_chart, hour=hour)
                 if chart and chart.entries.count() == 100 and not force_update:
-                    logger.debug('Already fetched this chart')
+                    logger.info('Skipping fetch for existing bugs chart')
                     return
             except ObjectDoesNotExist:
                 pass
@@ -1042,7 +1060,7 @@ class BugsChartService(BaseChartService):
             return
         (hourly_song_chart, created) = HourlySongChart.objects.get_or_create(chart=self.hourly_chart, hour=hour)
         if not created and hourly_song_chart.entries.count() == 100:
-            logger.debug('Already fetched this chart')
+            logger.info('Skipping db update for existing bugs chart')
             return
         for song_data in bugs_data:
             if song_data['song']:
@@ -1055,7 +1073,7 @@ class BugsChartService(BaseChartService):
                 if not created and chart_entry.position != song_data['position']:
                     chart_entry.position = song_data['position']
                     chart_entry.save()
-        logger.debug('Wrote bugs realtime chart for {} to database'.format(hour))
+        logger.info('Wrote bugs realtime chart for {} to database'.format(hour))
 
 
 # Add chart services to process here
