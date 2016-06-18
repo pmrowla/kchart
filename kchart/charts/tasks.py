@@ -12,7 +12,7 @@ from .models import AggregateHourlySongChart
 
 @shared_task
 def aggregate_hourly_chart():
-    AggregateHourlySongChart.generate()
+    AggregateHourlySongChart.generate(regenerate=True)
 
 
 @shared_task

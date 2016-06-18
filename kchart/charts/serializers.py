@@ -90,7 +90,7 @@ class AggregateChartEntrySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = AggregateHourlySongChartEntry
-        fields = ('song', 'total_score', 'position', 'prev_position')
+        fields = ('song', 'score', 'position', 'prev_position')
 
 
 class HourlySongChartSerializer(serializers.ModelSerializer):

@@ -176,7 +176,7 @@ class HourlySongChartEntry(BaseHourlySongChartEntry):
 class AggregateHourlySongChartEntry(BaseHourlySongChartEntry):
 
     hourly_chart = models.ForeignKey('AggregateHourlySongChart', on_delete=models.CASCADE, related_name='entries')
-    total_score = models.FloatField(_('Total song score'), default=0.0)
+    score = models.FloatField(_('Aggregated song score'), default=0.0)
 
     class Meta:
         unique_together = (('hourly_chart', 'song'))
@@ -226,25 +226,26 @@ class AggregateHourlySongChart(models.Model):
         entries = HourlySongChartEntry.objects.filter(
             hourly_chart__hour=hour
         ).values('song').annotate(
-            total_score=Sum(
+            score=Sum(
                 ExpressionWrapper(
                     101 - F('position'),
                     output_field=models.FloatField()
                 ) * F('hourly_chart__chart__weight')
-            )
-        ).order_by('-total_score')
+            ) / Sum(F('hourly_chart__chart__weight') * 100)
+        ).order_by('-score')
         for (i, entry) in enumerate(entries):
             song = Song.objects.get(pk=entry['song'])
             (new_entry, created) = AggregateHourlySongChartEntry.objects.get_or_create(
                 hourly_chart=chart,
                 song=song,
-                defaults={'total_score': entry['total_score'], 'position': i},
+                defaults={'score': entry['score'], 'position': i},
             )
             if not created:
-                new_entry.total_score = entry['total_score']
+                new_entry.score = entry['score']
                 new_entry.position = i + 1
                 new_entry.save()
         chart.charts.clear()
         for c in aggregate_charts.all():
             chart.charts.add(c)
+        chart.save()
         return chart
