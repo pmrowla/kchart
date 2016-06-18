@@ -10,6 +10,7 @@ import requests
 
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist, MultipleObjectsReturned
+from django.db.models import Count, F
 
 from .models import (
     Artist,
@@ -73,6 +74,19 @@ class BaseChartService(object):
         :param bool force_update: True if existing chart data should be overwritten
         '''
         raise NotImplementedError
+
+    def refetch_incomplete(self, dry_run=False):
+        '''Re-fetch any incomplete charts for this service'''
+        incomplete = HourlySongChart.objects.filter(
+            chart__service=self.service
+        ).annotate(
+            Count(F('entries'))
+        ).filter(
+            entries__count__lt=100
+        ).all()
+        logger.info('Refetching {} incomplete {} charts'.format(len(incomplete), self.SLUG))
+        for chart in incomplete:
+            self.fetch_hourly(hour=chart.hour, dry_run=dry_run, force_update=True)
 
     @classmethod
     def match_song(cls, alt_service, song, album, artists, try_artist=False, try_album=False):
@@ -430,7 +444,10 @@ class MelonChartService(BaseChartService):
     @classmethod
     def search_song(cls, name, page=1, artist_names=[], album_name=''):
         url = 'http://apis.skplanetx.com/melon/songs'
-        name = name.replace(' & ', ' and ')
+        # melon prefers and for titles but & in featured artist lists
+        m = re.match('^.*\(feat\.?.*\)', name, re.I)
+        if not m:
+            name = name.replace(' & ', ' and ')
         if album_name:
             m = re.match(r'^(.*ost.*)\(.*\)$', album_name, re.I)
             if m:
