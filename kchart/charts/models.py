@@ -179,7 +179,7 @@ class AggregateHourlySongChartEntry(BaseHourlySongChartEntry):
     score = models.FloatField(_('Aggregated song score'), default=0.0)
 
     class Meta:
-        unique_together = (('hourly_chart', 'song'))
+        unique_together = (('hourly_chart', 'song'), ('hourly_chart', 'position'))
         ordering = ['hourly_chart', 'position']
 
     @property
@@ -189,7 +189,10 @@ class AggregateHourlySongChartEntry(BaseHourlySongChartEntry):
                 hourly_chart__hour=self.hourly_chart.hour - timedelta(hours=1),
                 song=self.song
             )
-            return prev_entry.position
+            if prev_entry.position > 100:
+                return None
+            else:
+                return prev_entry.position
         except AggregateHourlySongChartEntry.DoesNotExist:
             return None
 
@@ -221,8 +224,12 @@ class AggregateHourlySongChart(models.Model):
         (chart, created) = AggregateHourlySongChart.objects.get_or_create(
             hour=hour
         )
-        if not created and not regenerate:
-            return chart
+        if not created:
+            if regenerate:
+                for entry in chart.entries.all():
+                    entry.delete()
+            else:
+                return chart
         entries = HourlySongChartEntry.objects.filter(
             hourly_chart__hour=hour
         ).values('song').annotate(
@@ -238,7 +245,7 @@ class AggregateHourlySongChart(models.Model):
             (new_entry, created) = AggregateHourlySongChartEntry.objects.get_or_create(
                 hourly_chart=chart,
                 song=song,
-                defaults={'score': entry['score'], 'position': i},
+                defaults={'score': entry['score'], 'position': i + 1},
             )
             if not created:
                 new_entry.score = entry['score']

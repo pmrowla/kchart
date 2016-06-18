@@ -106,8 +106,13 @@ class HourlySongChartSerializer(serializers.ModelSerializer):
 class AggregateHourlySongChartSerializer(serializers.ModelSerializer):
 
     component_charts = AggregateChartSerializer(many=True)
-    entries = AggregateChartEntrySerializer(many=True)
+    entries = serializers.SerializerMethodField()
 
     class Meta:
         model = AggregateHourlySongChart
         fields = ('name', 'component_charts', 'hour', 'entries')
+
+    def get_entries(self, hourly_chart):
+        entries = AggregateHourlySongChartEntry.objects.filter(hourly_chart=hourly_chart)[:100]
+        serializer = AggregateChartEntrySerializer(instance=entries, many=True)
+        return serializer.data

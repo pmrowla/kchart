@@ -10,7 +10,7 @@ from .views import (
 
 
 hourly_song_chart_list = HourlySongChartViewSet.as_view({
-    'get': 'list',
+    'get': 'retrieve',
 })
 
 aggregate_hourly_song_chart_detail = AggregateHourlySongChartViewSet.as_view({
@@ -19,5 +19,5 @@ aggregate_hourly_song_chart_detail = AggregateHourlySongChartViewSet.as_view({
 
 urlpatterns = [
     url(r'^charts/realtime/$', aggregate_hourly_song_chart_detail, name='realtime'),
-    url(r'^charts/realtime/(?P<slug>\w+)/$', hourly_song_chart_list, name='realtime-service'),
+    url(r'^charts/realtime/(?P<slug>.+)/$', hourly_song_chart_list, name='realtime-service'),
 ]
