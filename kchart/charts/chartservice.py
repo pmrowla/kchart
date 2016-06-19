@@ -32,6 +32,7 @@ from .utils import KR_TZ, strip_to_hour, utcnow, melon_hour
 logger = logging.getLogger('django')
 
 ua = UserAgent()
+REQUESTS_TIMEOUT = 6.05
 
 
 class BaseChartService(object):
@@ -79,15 +80,18 @@ class BaseChartService(object):
         '''
         raise NotImplementedError
 
-    def refetch_incomplete(self, dry_run=False):
-        '''Re-fetch any incomplete charts for this service'''
-        incomplete = HourlySongChart.objects.filter(
+    def get_incomplete(self):
+        return HourlySongChart.objects.filter(
             chart__service=self.service
         ).annotate(
             Count(F('entries'))
         ).filter(
             entries__count__lt=100
         ).all()
+
+    def refetch_incomplete(self, dry_run=False):
+        '''Re-fetch any incomplete charts for this service'''
+        incomplete = get_incomplete()
         logger.info('Refetching {} incomplete {} charts'.format(len(incomplete), self.SLUG))
         for chart in incomplete:
             self.fetch_hourly(hour=chart.hour, dry_run=dry_run, force_update=True)
@@ -198,7 +202,7 @@ class MelonChartService(BaseChartService):
     @classmethod
     def api_get_json(cls, url, params=None):
         headers = {'Accept': 'application/json', 'appKey': settings.MELON_APP_KEY}
-        r = requests.get(url, params=params, headers=headers)
+        r = requests.get(url, params=params, headers=headers, timeout=REQUESTS_TIMEOUT)
         r.raise_for_status()
         return r.json()
 
@@ -270,7 +274,7 @@ class MelonChartService(BaseChartService):
         artist_info = {'melon_id': melon_id, 'debut_date': None}
         url = self.ARTIST_URL.format(artist_id=melon_id)
         headers = {'User-Agent': ua.random}
-        r = requests.get(url, headers=headers)
+        r = requests.get(url, headers=headers, timeout=REQUESTS_TIMEOUT)
         r.raise_for_status()
         html = fromstring(r.text)
         title = html.find_class('title_atist')
@@ -570,16 +574,9 @@ class MelonChartService(BaseChartService):
                 for potential_album in album['search_results'][0]:
                     if potential_song['albumId'] != potential_album['albumId']:
                         continue
-                    album_artist_set = set()
-                    album_artists = potential_album['artists']['artist']
-                    if len(album_artists) == 1 and \
-                            album_artists[0]['artistId'] == MelonChartService.VARIOUS_ARTISTS_ID:
-                        album_artists = potential_song['artists']['artist']
-                        for a in album_artists:
-                            album_artist_set.add(a['artistId'])
-                    else:
-                        for a in album_artists:
-                            album_artist_set.add(a['artistId'])
+                    song_artist_set = set()
+                    for a in potential_song['artists']['artist']:
+                        song_artist_set.add(a['artistId'])
                     artist_set_list = []
                     for artist in artists:
                         if 'melon_id' in artist:
@@ -589,7 +586,7 @@ class MelonChartService(BaseChartService):
                             for potential_artist in artist['search_results'][0]:
                                 artist_set.add(potential_artist['artistId'])
                             artist_set_list.append(artist_set)
-                    intersections = cls._compare_artist_sets(album_artist_set, artist_set_list)
+                    intersections = cls._compare_artist_sets(song_artist_set, artist_set_list)
                     if intersections:
                         matched_song = potential_song
                         song['melon_id'] = matched_song['songId']
@@ -647,7 +644,7 @@ class GenieChartService(BaseChartService):
     def _split_genie_artist(self, name, artist_id):
         url = self.ARTIST_URL.format(artist_id=artist_id)
         headers = {'User-Agent': ua.random}
-        r = requests.get(url, headers=headers)
+        r = requests.get(url, headers=headers, timeout=REQUESTS_TIMEOUT)
         r.raise_for_status()
         html = fromstring(r.text)
         if '&' in name:
@@ -676,6 +673,14 @@ class GenieChartService(BaseChartService):
         if not rank:
             raise RuntimeError('Got unexpected genie chart HTML')
         song_id = int(entry_element.get('songid'))
+        try:
+            # If we've already gotten this song, return it now. Normally this
+            # check is performed in MelonChartService.match_song(), but for
+            # genie we do this check here to avoid potential unnecessary artist lookup requests
+            genie_song = MusicServiceSong.objects.get(service=self.service, service_song_id=song_id)
+            return {'song': genie_song.song, 'position': rank}
+        except MusicServiceSong.DoesNotExist:
+            pass
         music_span = entry_element.find("./span[@class='music-info']/span[@class='music_area']/span[@class='music']")
         artist_a = music_span.find("./span[@class='meta']/a[@class='artist']")
         artist_name = artist_a.text.strip()
@@ -742,7 +747,7 @@ class GenieChartService(BaseChartService):
             'pg': page,
         }
         headers = {'User-Agent': ua.random}
-        r = requests.get(url, params=params, headers=headers)
+        r = requests.get(url, params=params, headers=headers, timeout=REQUESTS_TIMEOUT)
         r.raise_for_status()
         html = fromstring(r.text)
         song_list = html.find_class('list-wrap')
@@ -888,7 +893,7 @@ class MnetChartService(BaseChartService):
             'pNum': page,
         }
         headers = {'User-Agent': ua.random}
-        r = requests.get(url, params=params, headers=headers)
+        r = requests.get(url, params=params, headers=headers, timeout=REQUESTS_TIMEOUT)
         r.raise_for_status()
         html = fromstring(r.text)
         chart_div = html.find_class('MMLTable')
@@ -1055,7 +1060,7 @@ class BugsChartService(BaseChartService):
             'charthour': kr_hour.strftime('%H'),
         }
         headers = {'User-Agent': ua.random}
-        r = requests.get(url, params=params, headers=headers)
+        r = requests.get(url, params=params, headers=headers, timeout=REQUESTS_TIMEOUT)
         r.raise_for_status()
         html = fromstring(r.text)
         chart_table = html.find_class('byChart')

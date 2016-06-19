@@ -22,38 +22,20 @@ def aggregate_hourly_chart(hour=utcnow()):
 
 
 @shared_task
-def update_bugs_hourly_chart(hour=utcnow(), **kwargs):
-    bugs = BugsChartService()
+def update_hourly_chart(chart_service, hour=utcnow(), **kwargs):
+    svc = chart_service()
     try:
-        return bugs.fetch_hourly(hour)
+        return svc.fetch_hourly(hour)
     except (ConnectionError, ConnectTimeout) as exc:
-        raise update_bugs_hourly_chart.retry(hour=hour, exc=exc, kwargs=kwargs)
-
-
-@shared_task
-def update_mnet_hourly_chart(hour=utcnow(), **kwargs):
-    mnet = MnetChartService()
-    try:
-        return mnet.fetch_hourly(hour)
-    except (ConnectionError, ConnectTimeout) as exc:
-        raise update_mnet_hourly_chart.retry(hour=hour, exc=exc, kwargs=kwargs)
-
-
-@shared_task
-def update_genie_hourly_chart(hour=utcnow(), **kwargs):
-    genie = GenieChartService()
-    try:
-        return genie.fetch_hourly(hour)
-    except (ConnectionError, ConnectTimeout) as exc:
-        raise update_genie_hourly_chart.retry(hour=hour, exc=exc, kwargs=kwargs)
+        raise update_hourly_chart.retry(args=[chart_service], hour=hour, exc=exc, kwargs=kwargs)
 
 
 @shared_task
 def update_dependent_hourly_charts(hour=utcnow()):
     chord([
-        update_genie_hourly_chart.s(hour),
-        update_mnet_hourly_chart.s(hour),
-        update_bugs_hourly_chart.s(hour),
+        update_hourly_chart.s(GenieChartService, hour=hour),
+        update_hourly_chart.s(MnetChartService, hour=hour),
+        update_hourly_chart.s(BugsChartService, hour=hour),
     ])(aggregate_hourly_chart.si(hour))
 
 
@@ -81,3 +63,20 @@ def backlog_hourly_range(start_hour=utcnow(), delta=timedelta(hours=23)):
         update_dependent_hourly_charts.apply_async((hour,), countdown=countdown)
         countdown += 30
         hour = hour - timedelta(hours=1)
+
+
+@shared_task
+def refetch_incomplete():
+    for chart_service in [
+        BugsChartService,
+        GenieChartService,
+        MnetChartService,
+    ]:
+        svc = chart_service()
+        countdown = 0
+        for chart in svc.get_incomplete():
+            (
+                update_hourly_chart.s(chart_service, chart.hour) |
+                aggregate_hourly_chart.si(chart.hour)
+            ).apply_async(countdown=countdown)
+            countdown += 30
