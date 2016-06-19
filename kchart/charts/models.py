@@ -56,7 +56,7 @@ class Song(models.Model):
             q = HourlySongChartEntry.objects.filter(hourly_chart__chart__service=service)
         else:
             q = AggregateHourlySongChartEntry.objects
-        q = q.filter(song=self)
+        q = q.filter(song=self, position__lte=100)
         position = q.aggregate(Min('position'))['position__min']
         if position:
             timestamp = q.filter(position=position).aggregate(
@@ -73,7 +73,10 @@ class Song(models.Model):
             q = AggregateHourlySongChartEntry.objects
         try:
             entry = q.get(song=self, hourly_chart__hour=strip_to_hour(utcnow()))
-            return entry.position
+            if entry.position > 100:
+                return None
+            else:
+                return entry.position
         except ObjectDoesNotExist:
             return None
 
@@ -83,7 +86,7 @@ class Song(models.Model):
         else:
             q = AggregateHourlySongChartEntry.objects
         try:
-            entry = q.filter(song=self).earliest('hourly_chart__hour')
+            entry = q.filter(song=self, position__lte=100).earliest('hourly_chart__hour')
             return (entry.position, entry.hourly_chart.hour)
         except ObjectDoesNotExist:
             raise Song.HasNotCharted()
@@ -94,7 +97,7 @@ class Song(models.Model):
         else:
             q = AggregateHourlySongChartEntry.objects
         try:
-            entry = q.filter(song=self).latest('hourly_chart__hour')
+            entry = q.filter(song=self, position__lte=100).latest('hourly_chart__hour')
             return (entry.position, entry.hourly_chart.hour)
         except ObjectDoesNotExist:
             raise Song.HasNotCharted()
@@ -315,6 +318,12 @@ class AggregateHourlySongChart(models.Model):
                     entry.delete()
             else:
                 return chart
+        total_weight = HourlySongChart.objects.filter(
+            hour=hour
+        ).aggregate(Sum('chart__weight'))['chart__weight__sum']
+        if not total_weight:
+            # No charts to aggregate
+            return None
         entries = HourlySongChartEntry.objects.filter(
             hourly_chart__hour=hour
         ).values('song').annotate(
@@ -323,7 +332,7 @@ class AggregateHourlySongChart(models.Model):
                     101 - F('position'),
                     output_field=models.FloatField()
                 ) * F('hourly_chart__chart__weight')
-            ) / Sum(F('hourly_chart__chart__weight') * 100)
+            ) / (100.0 * total_weight)
         ).order_by('-score')
         for (i, entry) in enumerate(entries):
             song = Song.objects.get(pk=entry['song'])
