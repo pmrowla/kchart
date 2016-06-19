@@ -10,11 +10,13 @@ from rest_framework.viewsets import GenericViewSet
 from ..charts.models import (
     AggregateHourlySongChart,
     HourlySongChart,
-    MusicService
+    MusicService,
+    Song
 )
 from ..charts.serializers import (
+    AggregateHourlySongChartSerializer,
     HourlySongChartSerializer,
-    AggregateHourlySongChartSerializer
+    SongDetailSerializer,
 )
 from ..charts.utils import KR_TZ
 
@@ -63,3 +65,20 @@ class AggregateHourlySongChartViewSet(RetrieveModelMixin, GenericViewSet):
                 raise NotFound('Invalid hour parameter')
             q = q.filter(hour=hour)
         return q.first()
+
+
+class SongViewSet(RetrieveModelMixin, GenericViewSet):
+    ''' Viewset for songs'''
+
+    serializer_class = SongDetailSerializer
+
+    def get_object(self):
+        q = Song.objects.get(pk=int(self.kwargs['pk']))
+        return q
+
+    def get_serializer_context(self):
+        extra = self.request.query_params.get('extra', None)
+        if extra:
+            return {'include_service_slugs': extra.split(',')}
+        else:
+            return {}

@@ -50,6 +50,21 @@ class SongSerializer(serializers.ModelSerializer):
         depth = 1
 
 
+class SongDetailSerializer(serializers.ModelSerializer):
+
+    artists = ArtistSerializer(many=True)
+    album = AlbumTitleSerializer()
+    chart_details = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Song
+        fields = ('id', 'name', 'artists', 'album', 'release_date', 'chart_details')
+
+    def get_chart_details(self, song):
+        include_service_slugs = self.context.get('include_service_slugs', [])
+        return song.get_chart_details(include_service_slugs)
+
+
 class MusicServiceSerializer(serializers.ModelSerializer):
 
     class Meta:

@@ -7,8 +7,10 @@ from django.db import models
 from django.db.models import (
     ExpressionWrapper,
     F,
+    Min,
     Sum,
 )
+from django.core.exceptions import ObjectDoesNotExist
 from django.utils.translation import ugettext_lazy as _
 
 from .utils import utcnow, strip_to_hour
@@ -48,6 +50,85 @@ class Song(models.Model):
         for artist in self.artists.all():
             artist_names.append(str(artist))
         return '{} - {}'.format(', '.join(artist_names), self.name)
+
+    def get_peak_realtime_position(self, service=None):
+        if service:
+            q = HourlySongChartEntry.objects.filter(hourly_chart__chart__service=service)
+        else:
+            q = AggregateHourlySongChartEntry.objects
+        q = q.filter(song=self)
+        position = q.aggregate(Min('position'))['position__min']
+        if position:
+            timestamp = q.filter(position=position).aggregate(
+                Min('hourly_chart__hour')
+            )['hourly_chart__hour__min']
+            return (position, timestamp)
+        else:
+            raise Song.HasNotCharted()
+
+    def get_current_realtime_position(self, service=None):
+        if service:
+            q = HourlySongChartEntry.objects.filter(hourly_chart__chart__service=service)
+        else:
+            q = AggregateHourlySongChartEntry.objects
+        try:
+            entry = q.get(song=self, hourly_chart__hour=strip_to_hour(utcnow()))
+            return entry.position
+        except ObjectDoesNotExist:
+            return None
+
+    def get_initial_realtime_position(self, service=None):
+        if service:
+            q = HourlySongChartEntry.objects.filter(hourly_chart__chart__service=service)
+        else:
+            q = AggregateHourlySongChartEntry.objects
+        try:
+            entry = q.filter(song=self).earliest('hourly_chart__hour')
+            return (entry.position, entry.hourly_chart.hour)
+        except ObjectDoesNotExist:
+            raise Song.HasNotCharted()
+
+    def get_final_realtime_position(self, service=None):
+        if service:
+            q = HourlySongChartEntry.objects.filter(hourly_chart__chart__service=service)
+        else:
+            q = AggregateHourlySongChartEntry.objects
+        try:
+            entry = q.filter(song=self).latest('hourly_chart__hour')
+            return (entry.position, entry.hourly_chart.hour)
+        except ObjectDoesNotExist:
+            raise Song.HasNotCharted()
+
+    def get_realtime_details(self, service=None):
+        try:
+            details = {'has_charted': True}
+            (initial_position, initial_timestamp) = self.get_initial_realtime_position(service)
+            (peak_position, peak_timestamp) = self.get_peak_realtime_position(service)
+            current_position = self.get_current_realtime_position(service)
+            details['initial_position'] = initial_position
+            details['initial_timestamp'] = initial_timestamp
+            details['peak_position'] = peak_position
+            details['peak_timestamp'] = peak_timestamp
+            details['current_position'] = current_position
+            if not current_position:
+                (final_position, final_timestamp) = self.get_final_realtime_position(service)
+                details['final_position'] = final_position
+                details['final_timestamp'] = final_timestamp
+            return details
+        except Song.HasNotCharted:
+            return {'has_charted': False}
+
+    def get_chart_details(self, include_service_slugs=[]):
+        realtime_details = {
+            'kchart': self.get_realtime_details(),
+        }
+        for slug in include_service_slugs:
+            service = MusicService.objects.get(slug=slug)
+            realtime_details[slug] = self.get_realtime_details(service)
+        return {'realtime': realtime_details}
+
+    class HasNotCharted(Exception):
+        pass
 
 
 class MusicService(models.Model):
