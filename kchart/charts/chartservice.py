@@ -329,7 +329,7 @@ class MelonChartService(BaseChartService):
                 chart = HourlySongChart.objects.get(chart=self.hourly_chart, hour=hour)
                 if chart and chart.entries.count() and not force_update:
                     logger.info('Skipping fetch for existing melon chart')
-                    return
+                    return chart
             except ObjectDoesNotExist:
                 pass
             except MultipleObjectsReturned:
@@ -346,11 +346,11 @@ class MelonChartService(BaseChartService):
         rank_hour = melon_hour(melon_data['rankDay'], melon_data['rankHour'])
         logger.info('Fetched melon realtime chart for {}'.format(rank_hour))
         if dry_run:
-            return
+            return melon_data
         (hourly_song_chart, created) = HourlySongChart.objects.get_or_create(chart=self.hourly_chart, hour=rank_hour)
         if not created and hourly_song_chart.entries.count() and not force_update:
             logger.info('Skipping db update for existing melon chart')
-            return
+            return hourly_song_chart
         for song_data in melon_data['songs']['song']:
             song = self.get_or_create_song_from_melon_data(song_data)
             defaults = {'position': song_data['currentRank']}
@@ -363,6 +363,7 @@ class MelonChartService(BaseChartService):
                 chart_entry.position = song_data['currentRank']
                 chart_entry.save()
         logger.info('Wrote melon realtime chart for {} to database'.format(rank_hour))
+        return hourly_song_chart
 
     @classmethod
     def search_artist(cls, name, page=1):
@@ -769,7 +770,7 @@ class GenieChartService(BaseChartService):
                 chart = HourlySongChart.objects.get(chart=self.hourly_chart, hour=hour)
                 if chart and chart.entries.count() == 100 and not force_update:
                     logger.info('Skipping fetch for existing genie chart')
-                    return
+                    return chart
             except ObjectDoesNotExist:
                 pass
             except MultipleObjectsReturned:
@@ -779,11 +780,11 @@ class GenieChartService(BaseChartService):
             logger.warning('Genie returned unexpected number of chart entries: {}'.format(len(genie_data)))
         logger.info('Fetched genie realtime chart for {}'.format(hour))
         if dry_run:
-            return
+            return genie_data
         (hourly_song_chart, created) = HourlySongChart.objects.get_or_create(chart=self.hourly_chart, hour=hour)
         if not created and hourly_song_chart.entries.count() == 100:
             logger.info('Skipping db update for existing genie chart')
-            return
+            return hourly_song_chart
         for song_data in genie_data:
             defaults = {'position': song_data['position']}
             (chart_entry, created) = HourlySongChartEntry.objects.get_or_create(
@@ -795,6 +796,7 @@ class GenieChartService(BaseChartService):
                 chart_entry.position = song_data['position']
                 chart_entry.save()
         logger.info('Wrote genie realtime chart for {} to database'.format(hour))
+        return hourly_song_chart
 
 
 class MnetChartService(BaseChartService):
@@ -914,7 +916,7 @@ class MnetChartService(BaseChartService):
                 chart = HourlySongChart.objects.get(chart=self.hourly_chart, hour=hour)
                 if chart and chart.entries.count() == 100 and not force_update:
                     logger.info('Skipping fetch for existing mnet chart')
-                    return
+                    return chart
             except ObjectDoesNotExist:
                 pass
             except MultipleObjectsReturned:
@@ -924,11 +926,11 @@ class MnetChartService(BaseChartService):
             logger.warning('Mnet returned unexpected number of chart entries: {}'.format(len(mnet_data)))
         logger.info('Fetched mnet realtime chart for {}'.format(hour))
         if dry_run:
-            return
+            return mnet_data
         (hourly_song_chart, created) = HourlySongChart.objects.get_or_create(chart=self.hourly_chart, hour=hour)
         if not created and hourly_song_chart.entries.count() == 100:
             logger.info('Skipping db update for existing mnet chart')
-            return
+            return hourly_song_chart
         for song_data in mnet_data:
             if song_data['song']:
                 defaults = {'position': song_data['position']}
@@ -941,6 +943,7 @@ class MnetChartService(BaseChartService):
                     chart_entry.position = song_data['position']
                     chart_entry.save()
         logger.info('Wrote mnet realtime chart for {} to database'.format(hour))
+        return hourly_song_chart
 
 
 class BugsChartService(BaseChartService):
@@ -1075,7 +1078,7 @@ class BugsChartService(BaseChartService):
                 chart = HourlySongChart.objects.get(chart=self.hourly_chart, hour=hour)
                 if chart and chart.entries.count() == 100 and not force_update:
                     logger.info('Skipping fetch for existing bugs chart')
-                    return
+                    return chart
             except ObjectDoesNotExist:
                 pass
             except MultipleObjectsReturned:
@@ -1085,11 +1088,11 @@ class BugsChartService(BaseChartService):
             logger.warning('Bugs returned unexpected number of chart entries: {}'.format(len(bugs_data)))
         logger.info('Fetched bugs realtime chart for {}'.format(hour))
         if dry_run:
-            return
+            return bugs_data
         (hourly_song_chart, created) = HourlySongChart.objects.get_or_create(chart=self.hourly_chart, hour=hour)
         if not created and hourly_song_chart.entries.count() == 100:
             logger.info('Skipping db update for existing bugs chart')
-            return
+            return hourly_song_chart
         for song_data in bugs_data:
             if song_data['song']:
                 defaults = {'position': song_data['position']}
@@ -1102,6 +1105,7 @@ class BugsChartService(BaseChartService):
                     chart_entry.position = song_data['position']
                     chart_entry.save()
         logger.info('Wrote bugs realtime chart for {} to database'.format(hour))
+        return hourly_song_chart
 
 
 # Add chart services to process here

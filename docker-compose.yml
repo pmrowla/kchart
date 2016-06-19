@@ -50,7 +50,7 @@ services:
 
 
   redis:
-    image: redis:3.0
+    build: ./compose/redis
 
   celeryworker:
     build:
