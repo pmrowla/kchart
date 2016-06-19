@@ -123,8 +123,12 @@ class Song(models.Model):
             'kchart': self.get_realtime_details(),
         }
         for slug in include_service_slugs:
-            service = MusicService.objects.get(slug=slug)
-            realtime_details[slug] = self.get_realtime_details(service)
+            try:
+                service = MusicService.objects.get(slug=slug)
+                realtime_details[slug] = self.get_realtime_details(service)
+            except MusicService.DoesNotExist:
+                # ignore invalid query params
+                pass
         return {'realtime': realtime_details}
 
     class HasNotCharted(Exception):
