@@ -12,13 +12,27 @@ from .chartservice import (
     MelonChartService,
     MnetChartService,
 )
-from .models import AggregateHourlySongChart
+from .models import AggregateHourlySongChart, HourlySongChart
 from .utils import utcnow, strip_to_hour
 
 
 @shared_task
 def aggregate_hourly_chart(hour=utcnow()):
     return AggregateHourlySongChart.generate(hour=hour, regenerate=True)
+
+
+@shared_task
+def aggregate_all_hourly_charts():
+    '''Re-aggregate everything
+
+    This task should only be run when the aggregation algorithm changes
+    '''
+    start = HourlySongChart.objects.latest('hour').hour
+    end = HourlySongChart.objects.earliest('hour').hour
+    h = start
+    while h >= end:
+        aggregate_hourly_chart.delay(h)
+        h = h - timedelta(hours=1)
 
 
 @shared_task
