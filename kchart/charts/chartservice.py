@@ -91,7 +91,7 @@ class BaseChartService(object):
 
     def refetch_incomplete(self, dry_run=False):
         '''Re-fetch any incomplete charts for this service'''
-        incomplete = get_incomplete()
+        incomplete = self.get_incomplete()
         logger.info('Refetching {} incomplete {} charts'.format(len(incomplete), self.SLUG))
         for chart in incomplete:
             self.fetch_hourly(hour=chart.hour, dry_run=dry_run, force_update=True)
@@ -898,7 +898,7 @@ class MnetChartService(BaseChartService):
         html = fromstring(r.text)
         chart_div = html.find_class('MMLTable')
         if len(chart_div) != 1:
-            raise RuntimeError('Got unexpected genie chart HTML')
+            raise RuntimeError('Got unexpected mnet chart HTML')
         entries = []
         for tr in chart_div[0].findall('.//tbody/tr'):
             entry = self._scrape_chart_row(tr, dry_run=dry_run)
