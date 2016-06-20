@@ -234,6 +234,7 @@ INSTALLED_APPS += ('kchart.taskapp.celery.CeleryConfig',)
 INSTALLED_APPS += ('kombu.transport.django',)
 BROKER_URL = env('CELERY_BROKER_URL', default='django://')
 CELERY_RESULT_BACKEND = env('CELERY_RESULT_BACKEND', default='rpc://')
+CELERY_EVENT_SERIALIZER = 'pickle'
 
 # Location of root django.contrib.admin URL, use {% url 'admin:index' %}
 ADMIN_URL = r'^admin/'
