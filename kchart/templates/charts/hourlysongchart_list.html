@@ -71,7 +71,7 @@
               </tr>
             </thead>
             <tbody>
-              {% for entry in chart.entries.all %}
+              {% for entry in chart.entries.all|slice:':100' %}
               <tr>
                 <td>
                   {{ entry.position }}
