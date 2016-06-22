@@ -556,7 +556,7 @@ class MelonChartService(BaseChartService):
         if not results:
             return None
         song['search_results'] = (results, next_page)
-        inst = bool(re.match('inst', song['song_name'], re.I))
+        inst = bool(re.search('inst', song['song_name'], re.I))
         matched_song = None
         for potential_song in song['search_results'][0]:
             if matched_song:
@@ -564,7 +564,7 @@ class MelonChartService(BaseChartService):
 
             # hack to make sure we don't match instrumentals to
             # non-instrumentals
-            if inst != bool(re.match('inst', potential_song['songName'], re.I)):
+            if inst != bool(re.search('inst', potential_song['songName'], re.I)):
                 continue
             if 'melon_id' in album:
                 if potential_song['albumId'] == album['melon_id']:
