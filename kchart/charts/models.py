@@ -13,7 +13,7 @@ from django.db.models import (
 from django.core.exceptions import ObjectDoesNotExist
 from django.utils.translation import ugettext_lazy as _
 
-from .utils import utcnow, strip_to_hour
+from .utils import utcnow, strip_to_hour, KR_TZ
 
 
 class Artist(models.Model):
@@ -226,6 +226,9 @@ class HourlySongChart(models.Model):
     chart = models.ForeignKey(Chart, on_delete=models.CASCADE)
     hour = models.DateTimeField(_('Chart start hour'))
 
+    def __str__(self):
+        return '{} <{}>'.format(self.chart.name, self.hour.astimezone(KR_TZ).strftime('%Y.%m.%d-%H'))
+
     class Meta:
         unique_together = ('chart', 'hour')
         ordering = ['-hour', 'chart']
@@ -292,6 +295,9 @@ class AggregateHourlySongChart(models.Model):
 
     class Meta:
         ordering = ['-hour']
+
+    def __str__(self):
+        return '{} <{}>'.format(self.name, self.hour.astimezone(KR_TZ).strftime('%Y.%m.%d-%H'))
 
     @property
     def name(self):

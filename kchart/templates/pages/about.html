@@ -1,1 +1,27 @@
 {% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+  <div class="row">
+    <p class="lead">kchart.io is a Korean music service chart aggregator. Currently, the realtime top 100 charts for the four largest Korean digital music services (Melon, Genie, Bugs, Mnet) are indexed.</p>
+    <h1>FAQ</h1>
+    <hr />
+    <h3>How does the aggregated chart scoring work?</h3>
+    <p>kchart.io's overall chart scoring is similar to instiz. Each service's charts are weighted based on their relative userbase sizes (i.e. being rated #1 on Melon is worth more that being rated #1 on Genie)</p>
+    <h3>Is historical chart data available?</h3>
+    <p>Yes, except for Melon. All the chart services except melon provide historical data, and eventually all of the publically available historical data for Genie, Bugs and Mnet will be made available on kchart.io, but it will take some time for the backlog scripts to complete.</p>
+    <h3>Why are &lt;particular service's&gt; charts unavailable for certain timestamps?</h3>
+    <p>Charts are indexed via web scraping. Missing chart data most likely means the kchart.io scraper was unable to connect to the chart service's website for some reason, but missing data will eventually be filled in by the backlog scripts.</p>
+    <h3>How is kchart.io any different than instiz?</h3>
+    <p>It's not, and intiz's data is almost certainly more reliable. However, instiz's interface for accessing historical chart data is slow and painful to use. kchart.io's intended purpose is to make it easy to see a particular song's chart history (i.e. where and when the song peaked on each chart, along with some other historical trend data).</p>
+    <h3>Is there an API available?</h3>
+    Yes, although it is still in development and should not be considered stable. Currently the available API endpoints are:
+    <ul>
+      <li><a href="https://kchart.io/api/v1/charts/realtime/">/api/v1/charts/realtime/</a></li>
+      <li><a href="https://kchart.io/api/v1/charts/realtime/melon/">/api/v1/charts/realtime/melon|genie|bugs|mnet/</a></li>
+      <li><a href="https://kchart.io/api/v1/songs/163/?extra=melon,genie,bugs,mnet">/api/v1/songs/song_id/</a></li>
+    </ul>
+    Timestamps in the form of YYYYmmddHH can be appended to the chart url endpoints to retrieve a specific historical chart. The extra field in the songs api can be used to specify which chart data to include in the song details.
+  </div>
+</div>
+{% endblock %}

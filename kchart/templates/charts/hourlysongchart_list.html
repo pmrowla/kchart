@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% load static %}{% load i18n %}{% load charts_tags %}
+{% block title %}Charts{% endblock %}
+
+{% block content %}
+
+<div class="container">
+  <div class="dashhead">
+    <div class="dashhead-titles">
+      <h3 class="dashhead-subtitle">Realtime</h3>
+      <h1 class="dashhead-title">Charts</h1>
+    </div>
+
+    <div class="dashhead-toolbar">
+      <form method="get">
+        <div class="input-with-icon dashhead-toolbar-item">
+          <input type="text" value="{{ hour|date:'Ymd' }}" class="form-control" data-provide="datepicker" data-date-format="yyyymmdd" name="date">
+          <span class="icon icon-calendar"></span>
+        </div>
+        <div class="dashhead-toolbar-item">
+          <select class="form-control" name="hour">
+            {% for i in 24|get_range %}
+            <option value="{{ i }}" {% if i == hour.hour %}selected{% endif %}>{{ i|stringformat:"02d" }}:00</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="btn-group dashhead-toolbar-item">
+          <button type="submit" class="btn btn-primary-outline">Go</button>
+        </div>
+        <span class="dashhead-toolbar-divider hidden-xs"></span>
+        <div class="btn-group dashhead-toolbar-item">
+          <a class="btn btn-primary-outline" href="{% url 'charts:hourly-chart-list' %}">Latest</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {% if not object_list %}
+  <div>
+    <p>No chart data available for this date.</p>
+  </div>
+  {% else %}
+  <div class="hr-divider">
+    <ul class="nav nav-pills hr-divider-content hr-divider-nav" role="tablist">
+      <li role="presentation" class="active"><a href="#kchart" aria-controls="kchart" role="tab" data-toggle="tab">overall</a></li>
+      {% for chart in object_list|slice:"1:" %}
+      <li role="presentation"><a href="#{{ chart.chart.service.slug }}" aria-controls="{{ chart.chart.service.slug }}" role="tab" data-toggle="tab">{{ chart.chart.service.slug }}</a></li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <div class="tab-content">
+    {% for chart in object_list %}
+    <div role="tabpanel" class="tab-pane{% if forloop.first %} active{% endif %}" id="{% if forloop.first %}kchart{% else %}{{ chart.chart.service.slug }}{% endif %}">
+      <div class="container">
+        <div class="dashhead">
+          <div class="dashhead-titles">
+            <h6 class="dashhead-subtitle">{{ chart.hour|date:'Y.m.d h' }}:00</h6>
+            <h3 class="dashhead-title">{% if forloop.first %}{{ chart.name }}{% else %}{{ chart.chart.name }}{% endif %}</h3>
+          </div>
+        </div>
+        <div class="row">
+          <table class="table table-hover">
+            <thead>
+              <tr>
+                <td>Rank</td>
+                {% if forloop.first %}<td>Score</td>{% endif %}
+                <td>Song</td>
+                <td>Album</td>
+                <td>Artist(s)</td>
+              </tr>
+            </thead>
+            <tbody>
+              {% for entry in chart.entries.all %}
+              <tr>
+                <td>
+                  {{ entry.position }}
+                  {% if not entry.prev_position %}
+                  <small class="text-info">New!</span></small>
+                  {% elif entry.position < entry.prev_position %}
+                  <small class="text-success"><span class="icon icon-arrow-up"></span>{{ entry.prev_position|subtract:entry.position }}</small>
+                  {% elif entry.position > entry.prev_position %}
+                  <small class="text-danger"><span class="icon icon-arrow-down"></span>{{ entry.position|subtract:entry.prev_position }}</small>
+                  {% else %}
+                  <small class="text-muted"><span class="icon icon-swap"></span></small>
+                  {% endif %}
+                </td>
+                {% if forloop.parentloop.first %}<td>{{ entry.score|floatformat:4 }}</td>{% endif %}
+                <td>{{ entry.song.name }} </td>
+                <td>{{ entry.song.album.name }}</td>
+                <td>{% for artist in entry.song.artists.all %}{% if not forloop.first %}, {% endif %}{{ artist.name }}{% endfor %}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+</div>
+
+{% endblock content %}
