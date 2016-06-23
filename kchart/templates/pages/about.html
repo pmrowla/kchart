@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% block title %}kchart.io | About{% endblock %}
 
 {% block content %}
 <div class="container">
@@ -6,6 +7,8 @@
     <p class="lead">kchart.io is a Korean music service chart aggregator. Currently, the realtime top 100 charts for the four largest Korean digital music services (Melon, Genie, Bugs, Mnet) are indexed.</p>
     <h1>FAQ</h1>
     <hr />
+    <h3>When is new hourly chart data available?</h3>
+    <p>Updated chart data is generally available at around 5 minutes past each hour (i.e. 00:05 KST, 01:05 KST, and so on).</p>
     <h3>How does the aggregated chart scoring work?</h3>
     <p>kchart.io's overall chart scoring is similar to instiz. Each service's charts are weighted based on their relative userbase sizes (i.e. being rated #1 on Melon is worth more that being rated #1 on Genie)</p>
     <h3>Is historical chart data available?</h3>
