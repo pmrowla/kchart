@@ -55,7 +55,7 @@
       <div class="container">
         <div class="dashhead">
           <div class="dashhead-titles">
-            <h6 class="dashhead-subtitle">{{ chart.hour|date:'Y.m.d h' }}:00 KST</h6>
+            <h6 class="dashhead-subtitle">{{ chart.hour|date:'Y.m.d H' }}:00 KST</h6>
             <h3 class="dashhead-title">{% if forloop.first %}{{ chart.name }}{% else %}{{ chart.chart.name }}{% endif %}</h3>
           </div>
         </div>
