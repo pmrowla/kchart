@@ -224,4 +224,8 @@ CELERYBEAT_SCHEDULE = {
         'task': 'kchart.charts.tasks.update_melon_hourly_chart',
         'schedule': crontab(minute=1),
     },
+    'hourly-cache': {
+        'task': 'kchart.charts.tasks.cache_past_day',
+        'schedule': crontab(minute=0),
+    },
 }

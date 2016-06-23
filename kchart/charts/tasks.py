@@ -103,12 +103,12 @@ def refetch_incomplete():
 
 
 @shared_task
-def initialize_cache():
-    '''Initialize some cache entries on celery startup
+def cache_past_day():
+    '''Force the last 24 hours worth of charts to be cached
 
     This will ensure that commonly accessed views are cached when the server is re-started
     '''
-    # cache the last day's worth of hourly charts
     now = strip_to_hour(utcnow())
     for i in range(24):
-        AggregateHourlySongChart.cache_chart(now - timedelta(hours=i))
+        # get_cached_chart will cache the chart if necessary
+        AggregateHourlySongChart.get_cached_chart(now - timedelta(hours=i))
