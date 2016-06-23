@@ -8,7 +8,7 @@ from django.core.exceptions import ObjectDoesNotExist
 from django.views.generic import ListView
 
 from .models import AggregateHourlySongChart, HourlySongChart
-from .utils import KR_TZ, strip_to_hour, utcnow
+from .utils import KR_TZ
 
 
 class HourlySongChartView(ListView):
@@ -24,7 +24,7 @@ class HourlySongChartView(ListView):
             except ValueError:
                 if msg:
                     messages.error(self.request, 'Invalid date/hour parameters.')
-        return strip_to_hour(utcnow()).astimezone(KR_TZ)
+        return AggregateHourlySongChart.objects.latest('hour').hour
 
     def get_context_data(self, **kwargs):
         context = super(HourlySongChartView, self).get_context_data(**kwargs)
