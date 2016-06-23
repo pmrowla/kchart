@@ -235,14 +235,28 @@ class HourlySongChart(models.Model):
         unique_together = ('chart', 'hour')
         ordering = ['-hour', 'chart']
 
+    def update_next_chart(self):
+        try:
+            next_chart = HourlySongChart.objects.get(hour=self.hour + timedelta(hours=1))
+            for entry in next_chart.entries.all():
+                entry.update_prev_position()
+        except HourlySongChart.DoesNotExist:
+            pass
+
 
 class BaseHourlySongChartEntry(models.Model):
 
     song = models.ForeignKey(Song, on_delete=models.CASCADE)
     position = models.SmallIntegerField(_('Chart position'))
+    prev_position = models.SmallIntegerField(_('Previous chart position'), null=True, default=None)
 
     class Meta:
         abstract = True
+
+    @classmethod
+    def update_all_prev_positions(cls):
+        for entry in cls.objects.all():
+            entry.update_prev_position()
 
 
 class HourlySongChartEntry(BaseHourlySongChartEntry):
@@ -253,17 +267,20 @@ class HourlySongChartEntry(BaseHourlySongChartEntry):
         unique_together = (('hourly_chart', 'song'), ('hourly_chart', 'position'))
         ordering = ['hourly_chart', 'position']
 
-    @property
-    def prev_position(self):
+    def update_prev_position(self):
         try:
             prev_entry = HourlySongChartEntry.objects.get(
-                hourly_chart__chart=self.hourly_chart.chart,
                 hourly_chart__hour=self.hourly_chart.hour - timedelta(hours=1),
+                hourly_chart__chart=self.hourly_chart.chart,
                 song=self.song
             )
-            return prev_entry.position
+            if prev_entry.position > 100:
+                self.prev_position = None
+            else:
+                self.prev_position = prev_entry.position
         except HourlySongChartEntry.DoesNotExist:
-            return None
+            self.prev_position = None
+        self.save()
 
 
 class AggregateHourlySongChartEntry(BaseHourlySongChartEntry):
@@ -275,19 +292,19 @@ class AggregateHourlySongChartEntry(BaseHourlySongChartEntry):
         unique_together = (('hourly_chart', 'song'), ('hourly_chart', 'position'))
         ordering = ['hourly_chart', 'position']
 
-    @property
-    def prev_position(self):
+    def update_prev_position(self):
         try:
             prev_entry = AggregateHourlySongChartEntry.objects.get(
                 hourly_chart__hour=self.hourly_chart.hour - timedelta(hours=1),
                 song=self.song
             )
             if prev_entry.position > 100:
-                return None
+                self.prev_position = None
             else:
-                return prev_entry.position
+                self.prev_position = prev_entry.position
         except AggregateHourlySongChartEntry.DoesNotExist:
-            return None
+            self.prev_position = None
+        self.save()
 
 
 class AggregateHourlySongChart(models.Model):
@@ -311,6 +328,18 @@ class AggregateHourlySongChart(models.Model):
         for c in self.charts.all():
             component_charts.append(c.chart)
         return component_charts
+
+    def update_next_chart(self):
+        try:
+            next_chart = AggregateHourlySongChart.objects.get(hour=self.hour + timedelta(hours=1))
+            for entry in next_chart.entries.all():
+                entry.update_prev_position()
+            if cache.get(self.get_cache_key(self.hour)):
+                # only bother with caching the next chart if it was already
+                # cached to begin with
+                self.cache_chart(next_chart.hour)
+        except AggregateHourlySongChart.DoesNotExist:
+            pass
 
     @classmethod
     def get_cache_key(cls, hour):
@@ -350,7 +379,7 @@ class AggregateHourlySongChart(models.Model):
             return cls.cache_chart(hour)
 
     @classmethod
-    def generate(cls, hour=utcnow(), regenerate=False):
+    def generate(cls, hour=utcnow(), regenerate=False, cache_result=True):
         '''Generate an aggregate hourly chart'''
         hour = strip_to_hour(hour)
         aggregate_charts = HourlySongChart.objects.filter(hour=hour)
@@ -391,9 +420,16 @@ class AggregateHourlySongChart(models.Model):
                 new_entry.score = entry['score']
                 new_entry.position = i + 1
                 new_entry.save()
+            new_entry.update_prev_position()
         chart.charts.clear()
         for c in aggregate_charts.all():
             chart.charts.add(c)
         chart.save()
-        cls.cache_chart(hour)
+        chart.update_next_chart()
+        if cache_result:
+            cls.cache_chart(hour)
+        else:
+            # if we aren't going to cache it make sure we invalidate any
+            # existing cache entry
+            cache.delete(cls.get_cache_key(hour))
         return chart

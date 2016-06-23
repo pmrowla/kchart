@@ -366,7 +366,9 @@ class MelonChartService(BaseChartService):
             if not created and chart_entry.position != song_data['currentRank']:
                 chart_entry.position = song_data['currentRank']
                 chart_entry.save()
+            chart_entry.update_prev_position()
         logger.info('Wrote melon realtime chart for {} to database'.format(rank_hour))
+        hourly_song_chart.update_next_chart()
         return hourly_song_chart
 
     @classmethod
@@ -800,7 +802,9 @@ class GenieChartService(BaseChartService):
             if not created and chart_entry.position != song_data['position']:
                 chart_entry.position = song_data['position']
                 chart_entry.save()
+            chart_entry.update_prev_position()
         logger.info('Wrote genie realtime chart for {} to database'.format(hour))
+        hourly_song_chart.update_next_chart()
         return hourly_song_chart
 
 
@@ -947,7 +951,9 @@ class MnetChartService(BaseChartService):
                 if not created and chart_entry.position != song_data['position']:
                     chart_entry.position = song_data['position']
                     chart_entry.save()
+                chart_entry.update_prev_position()
         logger.info('Wrote mnet realtime chart for {} to database'.format(hour))
+        hourly_song_chart.update_next_chart()
         return hourly_song_chart
 
 
@@ -1109,7 +1115,9 @@ class BugsChartService(BaseChartService):
                 if not created and chart_entry.position != song_data['position']:
                     chart_entry.position = song_data['position']
                     chart_entry.save()
+                chart_entry.update_prev_position()
         logger.info('Wrote bugs realtime chart for {} to database'.format(hour))
+        hourly_song_chart.update_next_chart()
         return hourly_song_chart
 
 
