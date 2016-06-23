@@ -3,8 +3,11 @@ from __future__ import unicode_literals, absolute_import
 
 from datetime import timedelta
 
-from celery import shared_task, chord
-from requests.exceptions import ConnectionError, ConnectTimeout
+from celery import (
+    chain,
+    shared_task,
+)
+from requests.exceptions import RequestsException
 
 from .chartservice import (
     BugsChartService,
@@ -35,22 +38,24 @@ def aggregate_all_hourly_charts():
         h = h - timedelta(hours=1)
 
 
-@shared_task
+@shared_task(default_retry_delay=10 * 60, max_retries=None)
 def update_hourly_chart(chart_service, hour=utcnow(), **kwargs):
+    '''Update the specified hourly chart
+
+    If an HTTP error occurs this task will be retried every 10 minutes until it succeeds
+    '''
     svc = chart_service()
     try:
         return svc.fetch_hourly(hour)
-    except (ConnectionError, ConnectTimeout) as exc:
+    except (RequestsException) as exc:
         raise update_hourly_chart.retry(args=[chart_service], hour=hour, exc=exc, kwargs=kwargs)
 
 
 @shared_task
 def update_dependent_hourly_charts(hour=utcnow()):
-    chord([
-        update_hourly_chart.s(GenieChartService, hour=hour),
-        update_hourly_chart.s(MnetChartService, hour=hour),
-        update_hourly_chart.s(BugsChartService, hour=hour),
-    ])(aggregate_hourly_chart.si(hour))
+    chain(update_hourly_chart.s(GenieChartService, hour=hour), aggregate_hourly_chart.si(hour))()
+    chain(update_hourly_chart.s(BugsChartService, hour=hour), aggregate_hourly_chart.si(hour))()
+    chain(update_hourly_chart.s(MnetChartService, hour=hour), aggregate_hourly_chart.si(hour))()
 
 
 @shared_task
@@ -58,6 +63,7 @@ def update_melon_hourly_chart():
     melon = MelonChartService()
     result = melon.fetch_hourly()
     update_dependent_hourly_charts.delay(result.hour)
+    aggregate_hourly_chart.delay(result.hour)
     return result
 
 
