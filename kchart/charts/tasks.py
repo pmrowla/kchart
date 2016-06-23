@@ -15,7 +15,7 @@ from .chartservice import (
     MelonChartService,
     MnetChartService,
 )
-from .models import AggregateHourlySongChart, HourlySongChart
+from .models import AggregateHourlySongChart, HourlySongChart, HourlySongChartBacklog
 from .utils import utcnow, strip_to_hour
 
 
@@ -68,21 +68,19 @@ def update_melon_hourly_chart():
 
 
 @shared_task
-def backlog_hourly_range(start_hour=utcnow(), delta=timedelta(hours=23)):
-    '''Fill hourly chart backlog, working backwards from [start_hour, (start_hour - delta)]
-
-    :param datetime start_hour: timestamp from which to begin the backlog operation
-    :param timedelta delta: the amount of time to backlog
-
-    Chart updates will be spaced at least 30 seconds apart to avoid spamming requests
-    '''
-    hour = strip_to_hour(start_hour)
-    end_hour = start_hour - delta
-    countdown = 30
-    while hour >= end_hour:
-        update_dependent_hourly_charts.apply_async((hour,), countdown=countdown)
-        countdown += 30
-        hour = hour - timedelta(hours=1)
+def backlog_hourly_charts():
+    '''Fill hourly chart backlog'''
+    for chart_service in [
+        BugsChartService,
+        GenieChartService,
+        MnetChartService,
+    ]:
+        svc = chart_service()
+        (backlog, created) = HourlySongChartBacklog.objects.get_or_create(chart=svc.hourly_chart)
+        hour = backlog.find_next_hour_to_backlog()
+        # if the chart update fails don't retry, let the celerybeat
+        # scheduler determine when to re-run this task
+        chain(update_hourly_chart.s(chart_service, hour=hour).set(max_retries=0), aggregate_hourly_chart.si(hour))()
 
 
 @shared_task

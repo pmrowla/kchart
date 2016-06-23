@@ -226,6 +226,10 @@ CELERYBEAT_SCHEDULE = {
     },
     'hourly-cache': {
         'task': 'kchart.charts.tasks.cache_past_day',
-        'schedule': crontab(minute=0),
+        'schedule': crontab(minute=59),
+    },
+    'hourly-backlog': {
+        'task': 'kchart.charts.tasks.backlog_hourly_charts',
+        'schedule': crontab(minute='*/5'),
     },
 }

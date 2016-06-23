@@ -237,11 +237,33 @@ class HourlySongChart(models.Model):
 
     def update_next_chart(self):
         try:
-            next_chart = HourlySongChart.objects.get(hour=self.hour + timedelta(hours=1))
+            next_chart = HourlySongChart.objects.get(chart=self.chart, hour=self.hour + timedelta(hours=1))
             for entry in next_chart.entries.all():
                 entry.update_prev_position()
         except HourlySongChart.DoesNotExist:
             pass
+
+
+class HourlySongChartBacklog(models.Model):
+
+    chart = models.OneToOneField(Chart, on_delete=models.CASCADE, related_name='hourly_backlog')
+    next_backlog_timestamp = models.DateTimeField(
+        _('Time from which to start the next backlog operation'),
+        auto_now_add=True
+    )
+    last_modified = models.DateTimeField(auto_now=True)
+
+    def find_next_hour_to_backlog(self):
+        hour = strip_to_hour(self.next_backlog_timestamp)
+        try:
+            while HourlySongChart.objects.get(chart=self.chart, hour=hour):
+                hour = hour - timedelta(hours=1)
+        except HourlySongChart.DoesNotExist:
+            pass
+        if self.next_backlog_timestamp != hour:
+            self.next_backlog_timestamp = hour
+            self.save()
+        return hour
 
 
 class BaseHourlySongChartEntry(models.Model):
