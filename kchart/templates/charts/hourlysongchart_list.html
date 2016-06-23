@@ -72,7 +72,7 @@
             </thead>
             <tbody>
               {% for entry in chart.entries.all|slice:':100' %}
-              <tr>
+              <tr onclick="input" data-toggle="modal" href="#songModal" data-song-id="{{ entry.song.id }}" data-chart-slug="{% if forloop.parentloop.first %}kchart{% else %}{{ chart.chart.service.slug }}{% endif %}">
                 <td>
                   {{ entry.position }}
                   {% if not entry.prev_position %}
@@ -103,3 +103,43 @@
 </div>
 
 {% endblock content %}
+
+{% block modal %}
+<div class="modal fade" id="songModal" tabindex="-1" role="dialog" aria-labelledby="songModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-md" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+        <h3 class="modal-title" id="songTitle">song title</h3>
+      </div>
+      <div class="modal-body modal-body-scroller">
+        <table class="table">
+          <tbody>
+            <tr>
+              <th scope="row">Album</th>
+              <td id="songAlbum"></td>
+            </tr>
+            <tr>
+              <th scope="row">Artist(s)</th>
+              <td id="songArtists"></td>
+            </tr>
+            <tr>
+              <th scope="row">Release Date</th>
+              <td id="songReleaseDate"></td>
+            </tr>
+            <tr>
+              <th scope="row">Current kchart.io rank</th>
+              <td id="songRank"></td>
+            </tr>
+            <tr>
+              <th scope="row">Peak kchart.io rank</th>
+              <td id="songPeakRank"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+  </div>
+</div>
+{% endblock modal %}
