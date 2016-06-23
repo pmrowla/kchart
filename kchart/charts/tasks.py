@@ -7,7 +7,7 @@ from celery import (
     chain,
     shared_task,
 )
-from requests.exceptions import RequestsException
+from requests.exceptions import RequestException
 
 from .chartservice import (
     BugsChartService,
@@ -47,7 +47,7 @@ def update_hourly_chart(chart_service, hour=utcnow(), **kwargs):
     svc = chart_service()
     try:
         return svc.fetch_hourly(hour)
-    except (RequestsException) as exc:
+    except (RequestException) as exc:
         raise update_hourly_chart.retry(args=[chart_service], hour=hour, exc=exc, kwargs=kwargs)
 
 
