@@ -31,3 +31,9 @@ def get_range(value):
 @register.filter
 def subtract(value, arg):
     return value - arg
+
+
+@register.filter
+def chart_list(aggregate_chart):
+    '''Return a flattened list consisting of this chart plus it's sub charts'''
+    return [aggregate_chart] + list(aggregate_chart.charts.all())

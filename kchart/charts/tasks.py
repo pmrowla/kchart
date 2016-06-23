@@ -100,3 +100,15 @@ def refetch_incomplete():
                 aggregate_hourly_chart.si(chart.hour)
             ).apply_async(countdown=countdown)
             countdown += 30
+
+
+@shared_task
+def initialize_cache():
+    '''Initialize some cache entries on celery startup
+
+    This will ensure that commonly accessed views are cached when the server is re-started
+    '''
+    # cache the last day's worth of hourly charts
+    now = strip_to_hour(utcnow())
+    for i in range(24):
+        AggregateHourlySongChart.cache_chart(now - timedelta(hours=i))

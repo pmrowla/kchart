@@ -2,7 +2,9 @@
 from __future__ import unicode_literals, absolute_import
 
 from datetime import timedelta
+import pickle
 
+from django.core.cache import cache
 from django.db import models
 from django.db.models import (
     ExpressionWrapper,
@@ -311,6 +313,43 @@ class AggregateHourlySongChart(models.Model):
         return component_charts
 
     @classmethod
+    def get_cache_key(cls, hour):
+        hour = strip_to_hour(hour)
+        return 'charts-realtime-{}'.format(hour.astimezone(KR_TZ).strftime('%Y%m%d%H'))
+
+    @classmethod
+    def cache_chart(cls, hour):
+        '''Caches the chart for the specified hour and then returns it'''
+        hour = strip_to_hour(hour)
+        key = cls.get_cache_key(hour)
+        try:
+            chart = AggregateHourlySongChart.objects.prefetch_related(
+                'entries__song__album',
+                'entries__song__artists',
+                'charts__entries__song__album',
+                'charts__entries__song__artists',
+                'charts__chart__service',
+            ).get(
+                hour=hour
+            )
+        except AggregateHourlySongChart.DoesNotExist:
+            cache.delete(key)
+            return None
+        pickle_str = pickle.dumps(chart)
+        cache.set(key, pickle_str, None)
+        return chart
+
+    @classmethod
+    def get_cached_chart(cls, hour):
+        hour = strip_to_hour(hour)
+        key = cls.get_cache_key(hour)
+        pickle_str = cache.get(key)
+        if pickle_str:
+            return pickle.loads(pickle_str)
+        else:
+            return cls.cache_chart(hour)
+
+    @classmethod
     def generate(cls, hour=utcnow(), regenerate=False):
         '''Generate an aggregate hourly chart'''
         hour = strip_to_hour(hour)
@@ -323,6 +362,7 @@ class AggregateHourlySongChart(models.Model):
                 for entry in chart.entries.all():
                     entry.delete()
             else:
+                cls.cache_chart(hour)
                 return chart
         total_weight = HourlySongChart.objects.filter(
             hour=hour
@@ -355,4 +395,5 @@ class AggregateHourlySongChart(models.Model):
         for c in aggregate_charts.all():
             chart.charts.add(c)
         chart.save()
+        cls.cache_chart(hour)
         return chart

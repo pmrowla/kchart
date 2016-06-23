@@ -29,13 +29,13 @@
         </div>
         <span class="dashhead-toolbar-divider hidden-xs"></span>
         <div class="btn-group dashhead-toolbar-item">
-          <a class="btn btn-primary-outline" href="{% url 'charts:hourly-chart-list' %}">Latest</a>
+          <a class="btn btn-primary-outline" href="{% url 'charts:hourly-chart-detail' %}">Latest</a>
         </div>
       </form>
     </div>
   </div>
 
-  {% if not object_list %}
+  {% if not object %}
   <div>
     <p>No chart data available for this date.</p>
   </div>
@@ -43,20 +43,20 @@
   <div class="hr-divider">
     <ul class="nav nav-pills hr-divider-content hr-divider-nav" role="tablist">
       <li role="presentation" class="active"><a href="#kchart" aria-controls="kchart" role="tab" data-toggle="tab">overall</a></li>
-      {% for chart in object_list|slice:"1:" %}
-      <li role="presentation"><a href="#{{ chart.chart.service.slug }}" aria-controls="{{ chart.chart.service.slug }}" role="tab" data-toggle="tab">{{ chart.chart.service.slug }}</a></li>
+      {% for hourly_chart in object.charts.all %}
+      <li role="presentation"><a href="#{{ hourly_chart.chart.service.slug }}" aria-controls="{{ hourly_chart.chart.service.slug }}" role="tab" data-toggle="tab">{{ hourly_chart.chart.service.slug }}</a></li>
       {% endfor %}
     </ul>
   </div>
 
   <div class="tab-content">
-    {% for chart in object_list %}
-    <div role="tabpanel" class="tab-pane{% if forloop.first %} active{% endif %}" id="{% if forloop.first %}kchart{% else %}{{ chart.chart.service.slug }}{% endif %}">
+    {% for hourly_chart in object|chart_list %}
+    <div role="tabpanel" class="tab-pane{% if forloop.first %} active{% endif %}" id="{% if forloop.first %}kchart{% else %}{{ hourly_chart.chart.service.slug }}{% endif %}">
       <div class="container">
         <div class="dashhead">
           <div class="dashhead-titles">
-            <h6 class="dashhead-subtitle">{{ chart.hour|date:'Y.m.d H' }}:00 KST</h6>
-            <h3 class="dashhead-title">{% if forloop.first %}{{ chart.name }}{% else %}{{ chart.chart.name }}{% endif %}</h3>
+            <h6 class="dashhead-subtitle">{{ hourly_chart.hour|date:'Y.m.d H' }}:00 KST</h6>
+            <h3 class="dashhead-title">{% if forloop.first %}{{ hourly_chart.name }}{% else %}{{ hourly_chart.chart.name }}{% endif %}</h3>
           </div>
         </div>
         <div class="row">
@@ -71,8 +71,8 @@
               </tr>
             </thead>
             <tbody>
-              {% for entry in chart.entries.all|slice:':100' %}
-              <tr onclick="input" data-toggle="modal" href="#songModal" data-song-id="{{ entry.song.id }}" data-chart-slug="{% if forloop.parentloop.first %}kchart{% else %}{{ chart.chart.service.slug }}{% endif %}">
+              {% for entry in hourly_chart.entries.all|slice:':100' %}
+              <tr onclick="input" data-toggle="modal" href="#songModal" data-song-id="{{ entry.song.id }}">
                 <td>
                   {{ entry.position }}
                   {% if not entry.prev_position %}
