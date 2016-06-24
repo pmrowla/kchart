@@ -666,26 +666,27 @@ class GenieChartService(BaseChartService):
         return int(m.group('album_id'))
 
     def _split_genie_artist(self, name, artist_id):
-        url = self.ARTIST_URL.format(artist_id=artist_id)
-        r = randomized_get(url)
-        r.raise_for_status()
-        html = fromstring(r.text)
+        # Genie lists collab'd artists as a group, all other services split
+        # them so we determine if we need to split here
         if '&' in name:
-            # Genie lists collab'd artists as a group, all other services split
-            # them so we determine if we need to split here
+            url = self.ARTIST_URL.format(artist_id=artist_id)
+            r = randomized_get(url)
+            r.raise_for_status()
+            html = fromstring(r.text)
             main_infos = html.find_class('artist-main-infos')[0]
             type_span = main_infos.find("./div[@class='info-zone']/ul[@class='info-data']/li")
             if '프로젝트' in type_span.text_content():
-                artists = []
-                # This is a collab artist
-                artist_list = html.find_class('artist-member-list')[0]
-                for li in artist_list.findall('./ul/li'):
-                    artist_a = li.find('./a')
-                    artist_id = self._get_artist_id_from_a(artist_a)
-                    artist_name = MelonChartService.melonify_name(li.text_content().strip())
-                    artists.append({'artist_name': artist_name, 'artist_id': artist_id})
-                return artists
-        return [{'artist_name': name, 'artist_id': artist_id}]
+                artist_list = html.find_class('artist-member-list')
+                if artist_list:
+                    # This is a collab artist
+                    artists = []
+                    for li in artist_list[0].findall('./ul/li'):
+                        artist_a = li.find('./a')
+                        artist_id = self._get_artist_id_from_a(artist_a)
+                        artist_name = MelonChartService.melonify_name(li.text_content().strip())
+                        artists.append({'artist_name': artist_name, 'artist_id': artist_id})
+                    return artists
+        return [{'artist_name': MelonChartService.melonify_name(name), 'artist_id': artist_id}]
 
     def _scrape_chart_entry(self, entry_element, dry_run=False):
         rank = None
