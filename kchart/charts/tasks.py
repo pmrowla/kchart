@@ -38,7 +38,7 @@ def aggregate_all_hourly_charts():
         h = h - timedelta(hours=1)
 
 
-@shared_task(default_retry_delay=10 * 60, max_retries=None)
+@shared_task(default_retry_delay=10 * 60, max_retries=5)
 def update_hourly_chart(chart_service, hour=utcnow()):
     '''Update the specified hourly chart
 
@@ -80,7 +80,13 @@ def backlog_hourly_charts():
         hour = backlog.find_next_hour_to_backlog()
         # if the chart update fails don't retry, let the celerybeat
         # scheduler determine when to re-run this task
-        chain(update_hourly_chart.s(chart_service, hour=hour).set(max_retries=0), aggregate_hourly_chart.si(hour))()
+        update_hourly_chart.apply_async(
+            args=(chart_service,),
+            kwargs={'hour': hour},
+            max_retries=0,
+            expires=60,
+            link=aggregate_hourly_chart.si(hour)
+        )
 
 
 @shared_task

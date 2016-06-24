@@ -251,3 +251,7 @@ REST_FRAMEWORK = {
 
 # Melon/SK developer appKey
 MELON_APP_KEY = env('MELON_APP_KEY')
+
+# Set this env if http requests should be proxied
+# Note that melon api requests will never be proxied
+REQUESTS_HTTP_PROXY = env('REQUESTS_HTTP_PROXY', None)

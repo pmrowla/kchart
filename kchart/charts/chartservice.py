@@ -32,12 +32,16 @@ from .utils import KR_TZ, strip_to_hour, utcnow, melon_hour
 logger = logging.getLogger('django')
 
 ua = UserAgent()
-REQUESTS_TIMEOUT = 6.05
+REQUESTS_TIMEOUT = 30
 
 
 def randomized_get(url, headers={}, timeout=REQUESTS_TIMEOUT, **kwargs):
+    if settings.REQUESTS_HTTP_PROXY:
+        proxies = {'http': settings.REQUESTS_HTTP_PROXY, 'https': settings.REQUESTS_HTTP_PROXY}
+    else:
+        proxies = {}
     headers.update({'User-Agent': ua.random})
-    return requests.get(url, headers=headers, timeout=timeout, **kwargs)
+    return requests.get(url, headers=headers, timeout=timeout, proxies=proxies, **kwargs)
 
 
 class BaseChartService(object):
