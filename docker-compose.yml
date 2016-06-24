@@ -61,7 +61,7 @@ services:
     depends_on:
      - postgres
      - redis
-    command: celery -A kchart.taskapp worker -l INFO --concurrency=10
+    command: celery -A kchart.taskapp worker --loglevel=INFO -Ofair --concurrency=10 -n default.%h
 
   celerybeat:
     build:

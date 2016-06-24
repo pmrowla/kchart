@@ -84,7 +84,7 @@ def backlog_hourly_charts():
             args=(chart_service,),
             kwargs={'hour': hour},
             max_retries=0,
-            expires=60,
+            expires=30,
             link=aggregate_hourly_chart.si(hour)
         )
 
