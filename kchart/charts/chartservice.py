@@ -32,12 +32,13 @@ from .utils import KR_TZ, strip_to_hour, utcnow, melon_hour
 logger = logging.getLogger('django')
 
 ua = UserAgent()
-REQUESTS_TIMEOUT = 30
+REQUESTS_TIMEOUT = 6.05
 
 
 def randomized_get(url, headers={}, timeout=REQUESTS_TIMEOUT, **kwargs):
     if settings.REQUESTS_HTTP_PROXY:
         proxies = {'http': settings.REQUESTS_HTTP_PROXY, 'https': settings.REQUESTS_HTTP_PROXY}
+        timeout = 10 * timeout
     else:
         proxies = {}
     headers.update({'User-Agent': ua.random})
