@@ -13,4 +13,9 @@ urlpatterns = [
         view=views.HourlySongChartView.as_view(),
         name='hourly-chart-detail'
     ),
+    url(
+        regex=r'^stats/$',
+        view=views.StatsView.as_view(),
+        name='chart-stats'
+    ),
 ]

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}kchart.io | Stats{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="dashhead">
+    <div class="dashhead-titles">
+      <h1 class="dashhead-title">kchart.io Statistics</h1>
+    </div>
+  </div>
+  <hr />
+
+  <ul>
+    <li>Melon data available through {{ melon_earliest|date:'Y.m.d H' }}:00 KST</li>
+    <li>Genie data available through {{ genie_earliest|date:'Y.m.d H' }}:00 KST</li>
+    <li>Bugs data available through {{ bugs_earliest|date:'Y.m.d H' }}:00 KST</li>
+    <li>Mnet data available through {{ mnet_earliest|date:'Y.m.d H' }}:00 KST</li>
+    <li>{{ song_count }} charted songs indexed</li>
+    <li>{{ artist_count }} charted artists indexed</li>
+    <li>{{ album_count }} charted albums indexed</li>
+  </ul>
+</div>
+{% endblock %}
