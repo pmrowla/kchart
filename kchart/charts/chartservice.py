@@ -307,7 +307,21 @@ class MelonChartService(BaseChartService):
     @classmethod
     def get_or_create_song_from_melon_data(cls, song_data):
         melon = cls()
-        release_date = datetime.strptime(song_data['issueDate'], '%Y%m%d').date()
+        try:
+            release_date = datetime.strptime(song_data['issueDate'], '%Y%m%d').date()
+        except ValueError as exc:
+            m = re.match(r'^(?P<year>\d{4})(?P<month>\d{2})(?P<day>\d{2})$', song_data['issueDate'])
+            if m:
+                year = int(m.group('year'))
+                month = int(m.group('month'))
+                if month == 0:
+                    month = 1
+                day = int(m.group('day'))
+                if day == 0:
+                    day = 1
+                release_date = date(year, month, day)
+            else:
+                raise exc
         artists = []
         for artist_data in song_data['artists']['artist']:
             artists.append(melon.get_artist_from_melon(artist_data['artistId']))
