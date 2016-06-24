@@ -235,6 +235,8 @@ INSTALLED_APPS += ('kombu.transport.django',)
 BROKER_URL = env('CELERY_BROKER_URL', default='django://')
 CELERY_CHORD_PROPAGATES = True
 CELERY_EVENT_SERIALIZER = 'pickle'
+CELERY_RESULT_SERIALIZER = 'pickle'
+CELERY_TASK_SERIALIZER = 'pickle'
 CELERY_RESULT_BACKEND = env('CELERY_RESULT_BACKEND', default='rpc://')
 
 # Location of root django.contrib.admin URL, use {% url 'admin:index' %}

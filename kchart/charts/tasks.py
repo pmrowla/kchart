@@ -39,7 +39,7 @@ def aggregate_all_hourly_charts():
 
 
 @shared_task(default_retry_delay=10 * 60, max_retries=None)
-def update_hourly_chart(chart_service, hour=utcnow(), **kwargs):
+def update_hourly_chart(chart_service, hour=utcnow()):
     '''Update the specified hourly chart
 
     If an HTTP error occurs this task will be retried every 10 minutes until it succeeds
@@ -48,7 +48,7 @@ def update_hourly_chart(chart_service, hour=utcnow(), **kwargs):
     try:
         return svc.fetch_hourly(hour)
     except (RequestException) as exc:
-        raise update_hourly_chart.retry(args=[chart_service], hour=hour, exc=exc, kwargs=kwargs)
+        raise update_hourly_chart.retry(args=[chart_service], kwargs={'hour': hour}, exc=exc)
 
 
 @shared_task

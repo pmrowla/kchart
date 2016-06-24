@@ -35,6 +35,11 @@ ua = UserAgent()
 REQUESTS_TIMEOUT = 6.05
 
 
+def randomized_get(url, headers={}, timeout=REQUESTS_TIMEOUT, **kwargs):
+    headers.update({'User-Agent': ua.random})
+    return requests.get(url, headers=headers, timeout=timeout, **kwargs)
+
+
 class BaseChartService(object):
     '''Abstract chart service class'''
 
@@ -273,8 +278,7 @@ class MelonChartService(BaseChartService):
     def _scrape_artist_info(self, melon_id):
         artist_info = {'melon_id': melon_id, 'debut_date': None}
         url = self.ARTIST_URL.format(artist_id=melon_id)
-        headers = {'User-Agent': ua.random}
-        r = requests.get(url, headers=headers, timeout=REQUESTS_TIMEOUT)
+        r = randomized_get(url)
         r.raise_for_status()
         html = fromstring(r.text)
         title = html.find_class('title_atist')
@@ -659,8 +663,7 @@ class GenieChartService(BaseChartService):
 
     def _split_genie_artist(self, name, artist_id):
         url = self.ARTIST_URL.format(artist_id=artist_id)
-        headers = {'User-Agent': ua.random}
-        r = requests.get(url, headers=headers, timeout=REQUESTS_TIMEOUT)
+        r = randomized_get(url)
         r.raise_for_status()
         html = fromstring(r.text)
         if '&' in name:
@@ -762,8 +765,7 @@ class GenieChartService(BaseChartService):
             'hh': kr_hour.strftime('%H'),
             'pg': page,
         }
-        headers = {'User-Agent': ua.random}
-        r = requests.get(url, params=params, headers=headers, timeout=REQUESTS_TIMEOUT)
+        r = randomized_get(url, params=params)
         r.raise_for_status()
         html = fromstring(r.text)
         song_list = html.find_class('list-wrap')
@@ -910,8 +912,7 @@ class MnetChartService(BaseChartService):
         params = {
             'pNum': page,
         }
-        headers = {'User-Agent': ua.random}
-        r = requests.get(url, params=params, headers=headers, timeout=REQUESTS_TIMEOUT)
+        r = randomized_get(url, params=params)
         r.raise_for_status()
         html = fromstring(r.text)
         chart_div = html.find_class('MMLTable')
@@ -1079,8 +1080,7 @@ class BugsChartService(BaseChartService):
             'chartdate': kr_hour.strftime('%Y%m%d'),
             'charthour': kr_hour.strftime('%H'),
         }
-        headers = {'User-Agent': ua.random}
-        r = requests.get(url, params=params, headers=headers, timeout=REQUESTS_TIMEOUT)
+        r = randomized_get(url, params=params)
         r.raise_for_status()
         html = fromstring(r.text)
         chart_table = html.find_class('byChart')

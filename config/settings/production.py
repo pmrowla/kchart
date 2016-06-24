@@ -230,6 +230,6 @@ CELERYBEAT_SCHEDULE = {
     },
     'hourly-backlog': {
         'task': 'kchart.charts.tasks.backlog_hourly_charts',
-        'schedule': crontab(minute='*/5'),
+        'schedule': crontab(minute='*/3'),
     },
 }
