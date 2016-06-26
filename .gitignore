@@ -67,3 +67,4 @@ compose/nginx/*.pem
 kchart/static/css/toolkit*
 kchart/static/fonts/toolkit*
 kchart/static/js/toolkit*
+kchart/static/js/google-analytics.js
