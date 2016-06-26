@@ -84,7 +84,7 @@ def _realtime_row_timestamp(text, tooltip, fields, timestamp_fields):
 @register.filter
 def song_realtime_table(song):
     details = song.get_chart_details(include_service_slugs=['melon', 'genie', 'bugs', 'mnet'])['realtime']
-    keys = ['kchart', 'melon', 'genie', 'bugs', 'mnet']
+    keys = ['kchart', 'melon', 'genie', 'mnet', 'bugs']
     html = '''
 <table class="table table-bordered">
   <thead>
@@ -93,8 +93,8 @@ def song_realtime_table(song):
       <th>kchart.io</th>
       <th>Melon</th>
       <th>Genie</th>
-      <th>Bugs!</th>
       <th>Mnet</th>
+      <th>Bugs!</th>
     </tr>
   </thead>
   <tbody>

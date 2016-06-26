@@ -18,7 +18,7 @@
           <span class="icon icon-calendar"></span>
         </div>
         <div class="dashhead-toolbar-item">
-          <select class="form-control" name="hour">
+          <select class="form-control custom-select" name="hour">
             {% for i in 24|get_range %}
             <option value="{{ i }}" {% if i == hour.hour %}selected{% endif %}>{{ i|stringformat:"02d" }}:00</option>
             {% endfor %}
