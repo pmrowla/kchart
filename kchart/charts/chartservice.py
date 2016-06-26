@@ -5,7 +5,7 @@ from datetime import datetime, date
 import logging
 import re
 
-from lxml.html import fromstring
+from lxml.html import fromstring, tostring
 from fake_useragent import UserAgent
 import requests
 
@@ -884,10 +884,18 @@ class MnetChartService(BaseChartService):
         if not rank:
             raise RuntimeError('Got unexpected mnet chart HTML')
         song_a = tr.find(".//a[@class='MMLI_Song']")
-        song_data = {
-            'song_id': self._get_song_id_from_a(song_a),
-            'song_name': MelonChartService.melonify_name(song_a.text.strip()),
-        }
+        if song_a is not None:
+            song_data = {
+                'song_id': self._get_song_id_from_a(song_a),
+                'song_name': MelonChartService.melonify_name(song_a.text.strip()),
+            }
+        else:
+            song_a = tr.find(".//a[@class='MMLI_Song disabled']")
+            if song_a is None:
+                raise RuntimeError('Got unexpected mnet chart HTML: {}'.format(tostring(tr)))
+            song_data = {'song_name': MelonChartService.melonify_name(song_a.text.strip())}
+            song_a = tr.find(".//a[@class='MMLI_SongInfo']")
+            song_data['song_id'] = self._get_song_id_from_a(song_a)
         artists = []
         for artist_a in tr.findall(".//a[@class='MMLIInfo_Artist']"):
             artist_data = {
@@ -896,10 +904,19 @@ class MnetChartService(BaseChartService):
             }
             artists.append(artist_data)
         album_a = tr.find(".//a[@class='MMLIInfo_Album']")
-        album_data = {
-            'album_id': self._get_album_id_from_a(album_a),
-            'album_name': MelonChartService.melonify_name(album_a.text.strip()),
-        }
+        if album_a is not None:
+            album_data = {
+                'album_id': self._get_album_id_from_a(album_a),
+                'album_name': MelonChartService.melonify_name(album_a.text.strip()),
+            }
+        else:
+            album_div = tr.find(".//div[@class='MMLITitle_Album']")
+            if album_div is None:
+                raise RuntimeError('Got unexpected mnet chart HTML: {}'.format(tostring(tr)))
+            album_a = album_div.find(".//a")
+            album_data = {'album_id': self._get_album_id_from_a(album_a)}
+            album_img = album_div.find(".//img")
+            album_data['album_name'] = re.sub('- 앨범$', '', album_img.get('alt').strip()).strip()
         if dry_run:
             song_data.update(album_data)
             song_data['artists'] = artists
