@@ -48,10 +48,16 @@ class Song(models.Model):
     release_date = models.DateField(_('Song release date'))
 
     def __str__(self):
-        artist_names = []
-        for artist in self.artists.all():
-            artist_names.append(str(artist))
-        return '{} - {}'.format(', '.join(artist_names), self.name)
+        return '{} - {}'.format(self.artist_names, self.name)
+
+    @property
+    def artist_names(self):
+        artists = self.artists.all()
+        if len(artists) <= 2:
+            sep = '& '
+        else:
+            sep = ', '
+        return sep.join(str(artist) for artist in artists)
 
     def get_peak_realtime_position(self, service=None):
         if service:
@@ -200,12 +206,16 @@ class MusicServiceAlbum(models.Model):
 
 class MusicServiceSong(models.Model):
     '''Table for mapping Song ID to a MusicService song ID'''
-    song = models.ForeignKey(Song, on_delete=models.CASCADE)
+    song = models.ForeignKey(Song, on_delete=models.CASCADE, related_name='service_songs')
     service = models.ForeignKey(MusicService, on_delete=models.CASCADE)
     service_song_id = models.IntegerField()
 
     class Meta:
         unique_together = (('service', 'song'), ('service', 'service_song_id'))
+
+    @property
+    def url(self):
+        return self.service.get_song_url(self.service_song_id)
 
 
 class UnknownServiceSong(models.Model):

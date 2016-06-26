@@ -23,6 +23,7 @@ urlpatterns = [
     # Your stuff: custom urls includes go here
     url(r'^api/v1/', include('kchart.api.urls', namespace='api-v1')),
     url(r'^charts/', include('kchart.charts.urls', namespace='charts')),
+    url(r'^songs/', include('kchart.songs.urls', namespace='songs')),
 
 
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

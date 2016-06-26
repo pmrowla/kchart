@@ -14,6 +14,7 @@ from .models import (
     AggregateHourlySongChart,
     HourlySongChart,
     HourlySongChartEntry,
+    Song,
 )
 from .utils import KR_TZ
 

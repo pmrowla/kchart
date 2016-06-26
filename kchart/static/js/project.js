@@ -37,3 +37,7 @@ $('#songModal').on('show.bs.modal', function(event) {
     modal.find('#songPeakRank').text(peakRank);
   });
 });
+
+$(function () {
+  $('[data-toggle="tooltip"]').tooltip()
+})

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% load static %}{% load i18n %}{% load charts_tags %}
+{% block title %}kchart.io | {{ object }}{% endblock %}
+
+{% block content %}
+
+<div class="container">
+  <div class="row">
+    <div class="col-sm-12">
+      <div class="dashhead">
+        <div class="dashhead-titles">
+          <h3 class="dashhead-subtitle">{{ object.artist_names }} | {{ object.album.name }}</h3>
+          <h1 class="dashhead-title">{{ object.name }}</h1>
+        </div>
+
+        <div class="dashhead-toolbar">
+          <div class="btn-group btn-group-md dashhead-toolbar-item">
+            {% for service_song in object.service_songs.all %}
+            <a href="{{ service_song.url }}" class="btn btn-primary-outline">{{ service_song.service.name }}</a>
+            {% endfor %}
+            <button class="btn btn-primary-outline" disabled><span class="fa fa-external-link"></span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-6">
+      <table class="table table-sm" id="songTable">
+        <tr>
+          <th class="col-md-2" scope="row">Artist(s)</th>
+          <td>{{ object.artist_names }}</td>
+        </tr>
+        <tr>
+          <th scope="row">Album</th>
+          <td>{{ object.album.name }}</td>
+        </tr>
+        <tr>
+          <th scope="row">Released</th>
+          <td>{{ object.release_date }}</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-sm-12">
+      <h3>Chart Details</h3>
+      {{ object|song_realtime_table }}
+    </div>
+  </div>
+</div>
+
+{% endblock content %}
