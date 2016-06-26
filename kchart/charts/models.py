@@ -380,7 +380,7 @@ class AggregateHourlySongChart(models.Model):
                 'charts__entries__song__album',
                 'charts__entries__song__artists',
                 'charts__chart__service',
-            ).get(
+            ).order_by('entries__position').get(
                 hour=hour
             )
         except AggregateHourlySongChart.DoesNotExist:
@@ -404,6 +404,8 @@ class AggregateHourlySongChart(models.Model):
     def generate(cls, hour=utcnow(), regenerate=False, cache_result=True):
         '''Generate an aggregate hourly chart'''
         hour = strip_to_hour(hour)
+        if regenerate:
+            cache.delete(cls.get_cache_key(hour))
         aggregate_charts = HourlySongChart.objects.filter(hour=hour)
         (chart, created) = AggregateHourlySongChart.objects.get_or_create(
             hour=hour
