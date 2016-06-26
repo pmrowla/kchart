@@ -25,6 +25,7 @@ from .models import (
     HourlySongChart,
     HourlySongChartEntry,
     AggregateHourlySongChart,
+    UnknownServiceSong,
 )
 from .utils import KR_TZ, strip_to_hour, utcnow, melon_hour
 
@@ -538,6 +539,15 @@ class MelonChartService(BaseChartService):
             return alt_song.song
         except MusicServiceSong.DoesNotExist:
             pass
+        try:
+            # If we know we can't match this song skip it to save melon api
+            # requests
+            unknown_song = UnknownServiceSong.objects.get(service=alt_service, service_song_id=song['song_id'])
+            logger.info('Skipping unmatchable {} song {}'.format(
+                unknown_song.service.slug, unknown_song.service_song_id))
+            return None
+        except UnknownServiceSong.DoesNotExist:
+            pass
         for artist in artists:
             try:
                 # Check for existing matched artists
@@ -736,6 +746,10 @@ class GenieChartService(BaseChartService):
                 break
         if not song:
             logger.error('No match for genie song {}'.format(song_name))
+            UnknownServiceSong.objects.get_or_create(
+                service=self.service,
+                service_song_id=song_data['song_id'],
+            )
             return None
         MusicServiceSong.objects.get_or_create(
             song=song,
@@ -925,6 +939,10 @@ class MnetChartService(BaseChartService):
         song = self.match_to_other_service(MelonChartService, song_data, album_data, artists)
         if not song:
             logger.error('No match for mnet song {}'.format(song_data['song_name']))
+            UnknownServiceSong.objects.get_or_create(
+                service=self.service,
+                service_song_id=song_data['song_id'],
+            )
             return None
         else:
             return {'song': song, 'position': rank}
@@ -1092,6 +1110,10 @@ class BugsChartService(BaseChartService):
         song = self.match_to_other_service(MelonChartService, song_data, album_data, artists)
         if not song:
             logger.error('No match for bugs song {} {} {}'.format(song_data, album_data, artists))
+            UnknownServiceSong.objects.get_or_create(
+                service=self.service,
+                service_song_id=song_data['song_id'],
+            )
             return None
         else:
             return {'song': song, 'position': rank}

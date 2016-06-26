@@ -208,6 +208,15 @@ class MusicServiceSong(models.Model):
         unique_together = (('service', 'song'), ('service', 'service_song_id'))
 
 
+class UnknownServiceSong(models.Model):
+    '''Table for songs that need to be manually added to the db'''
+    service = models.ForeignKey(MusicService, on_delete=models.CASCADE)
+    service_song_id = models.IntegerField()
+
+    class Meta:
+        unique_together = (('service', 'service_song_id'))
+
+
 class Chart(models.Model):
 
     service = models.ForeignKey(MusicService, on_delete=models.PROTECT)
