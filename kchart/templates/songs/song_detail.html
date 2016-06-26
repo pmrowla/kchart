@@ -16,9 +16,8 @@
         <div class="dashhead-toolbar">
           <div class="btn-group btn-group-md dashhead-toolbar-item">
             {% for service_song in object.service_songs.all %}
-            <a href="{{ service_song.url }}" class="btn btn-primary-outline">{{ service_song.service.name }}</a>
+            <a href="{{ service_song.url }}" target="_blank" class="btn btn-primary-outline" data-toggle="tooltip" data-placement="bottom" data-container="body" title="View this song on {{ service_song.service.name }}">{{ service_song.service.name }}</a>
             {% endfor %}
-            <button class="btn btn-primary-outline" disabled><span class="fa fa-external-link"></span></button>
           </div>
         </div>
       </div>

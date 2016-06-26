@@ -54,7 +54,7 @@ class Song(models.Model):
     def artist_names(self):
         artists = self.artists.all()
         if len(artists) <= 2:
-            sep = '& '
+            sep = ' & '
         else:
             sep = ', '
         return sep.join(str(artist) for artist in artists)
